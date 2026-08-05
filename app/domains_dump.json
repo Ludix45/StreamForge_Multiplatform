@@ -1,0 +1,117 @@
+{
+  "toonitalia": {
+    "domain": "xyz",
+    "full_url": "https://toonitalia.xyz/",
+    "time_change": "2026-06-12 20:39:20",
+    "last_status": 403
+  },
+  "animeunity": {
+    "domain": "so",
+    "full_url": "https://www.animeunity.so/",
+    "time_change": "2026-06-12 11:46:32",
+    "last_status": 403
+  },
+  "animeworld": {
+    "domain": "ac",
+    "full_url": "https://www.animeworld.ac/",
+    "time_change": "2026-05-20 17:49:58",
+    "last_status": 200
+  },
+  "cb01new": {
+    "domain": "sbs",
+    "full_url": "https://cb01uno.sbs/",
+    "old_domain": "live",
+    "time_change": "2026-06-08 17:36:47",
+    "last_status": 200
+  },
+  "cb01_2": {
+    "domain": "sbs",
+    "full_url": "https://cb01uno.sbs/",
+    "time_change": "2026-06-12 13:38:23",
+    "last_status": 200
+  },
+  "guardaserie": {
+    "domain": "you",
+    "full_url": "https://altadefinizione.you/",
+    "time_change": "2026-05-02 23:03:37",
+    "last_status": 200
+  },
+  "guardoserie_2": {
+    "domain": "living",
+    "full_url": "https://guardoserie.living/",
+    "time_change": "2026-06-12 11:46:38",
+    "last_status": 403
+  },
+  "altadefinizione": {
+    "domain": "ovh",
+    "full_url": "https://altadefinizione.ovh/",
+    "time_change": "2026-04-01 21:25:59",
+    "last_status": 200
+  },
+  "streamingcommunity": {
+    "domain": "eu",
+    "full_url": "https://streamingcommunityz.eu/",
+    "time_change": "2026-06-08 17:36:50",
+    "last_status": 200
+  },
+  "streamingcommunity_2": {
+    "domain": "dog",
+    "full_url": "https://streamingunity.dog/",
+    "time_change": "2026-06-12 13:42:23",
+    "last_status": 200
+  },
+  "guardaplay": {
+    "domain": "xyz",
+    "full_url": "https://guardaplay.xyz/",
+    "time_change": "2026-06-12 11:46:41",
+    "last_status": 403
+  },
+  "eurostreaming": {
+    "domain": "ing",
+    "full_url": "https://eurostream.ing/",
+    "time_change": "2026-06-12 11:46:42",
+    "last_status": 403
+  },
+  "filmpertutti": {
+    "domain": "garden",
+    "full_url": "https://filmpertutti.garden/",
+    "time_change": "2026-06-12 13:38:59",
+    "last_status": 200
+  },
+  "tantifilm": {
+    "domain": "online",
+    "full_url": "https://tantifilm.online/",
+    "time_change": "2026-03-21 07:56:08",
+    "last_status": 200
+  },
+  "tantifilm_2": {
+    "domain": "click",
+    "full_url": "https://ww1.tantifilm.click/",
+    "time_change": "2026-05-14 13:06:32",
+    "last_status": 200
+  },
+  "filmsenzalimite": {
+    "domain": "one",
+    "full_url": "https://filmsenzalimite.one/",
+    "time_change": "2026-04-03 15:45:00",
+    "last_status": 200
+  },
+  "mappl": {
+    "domain": "vip",
+    "full_url": "https://disablevpn.mapple.vip/",
+    "time_change": "2026-05-21 16:00:00",
+    "last_status": 200
+  },
+  "hydrahd": {
+    "domain": "ru",
+    "full_url": "https://hydrahd.ru/",
+    "time_change": "2026-06-07 21:49:37",
+    "last_status": 200
+  },
+  "cinezo": {
+    "domain": "net",
+    "full_url": "https://www.cinezo.net/",
+    "time_change": "2026-05-21 12:34:28",
+    "last_status": 200
+  }
+}

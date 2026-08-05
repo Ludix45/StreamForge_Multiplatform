@@ -1,0 +1,6 @@
+{
+  "name": "StreamForge",
+  "description": "App Android nativa con streaming HLS e continua a guardare.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

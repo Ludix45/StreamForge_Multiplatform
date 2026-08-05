@@ -1,0 +1,421 @@
+# 09.06.26
+
+import re
+import logging
+import threading
+from typing import Any, Dict, List, Optional, Tuple
+
+from rich.console import Console
+
+from VibraVid.utils import config_manager, os_manager
+from VibraVid.utils.http_client import create_client, get_headers
+from VibraVid.core.ui.tracker import download_tracker
+from VibraVid.core.ui.bar_manager import DownloadBarManager
+
+from VibraVid.core.velora.download_utils import parse_max_time as _parse_max_time
+from VibraVid.core.velora.downloader import MediaDownloader
+from VibraVid.core.velora._stream_helpers import join_interruptible
+
+from VibraVid.core.utils.selector import StreamSelector, StreamSelectorFormatter
+from VibraVid.core.utils.codec import DV_CODEC_PREFIXES
+from VibraVid.core.muxing import probe_media_file
+from VibraVid.core.ui.ui import build_table
+
+from .base import BaseDownloader
+
+
+console = Console()
+logger = logging.getLogger(__name__)
+
+EXTENSION_OUTPUT = config_manager.config.get("PROCESS", "extension")
+_MEDIA_TYPES = ("video", "audio", "subtitle")
+
+
+def _track_signature(s) -> tuple:
+    """Signature used to drop cross-manifest duplicates (keep the first seen)."""
+    codec = (getattr(s, "codecs", "") or "").strip().lower()
+    btr = getattr(s, "bitrate", 0) or 0
+
+    if s.type == "video":
+        res = (getattr(s, "resolution", "") or "").lower() or f"{getattr(s, 'width', 0)}x{getattr(s, 'height', 0)}"
+        return ("video", codec, res, btr)
+    
+    if s.type == "audio":
+        lang = (getattr(s, "resolved_language", "") or getattr(s, "language", "") or "").lower()
+        ch = (getattr(s, "channels", "") or "").lower()
+        return ("audio", codec, lang, ch, btr)
+    
+    lang = (getattr(s, "resolved_language", "") or getattr(s, "language", "") or "").lower()
+    return ("subtitle", lang, codec, bool(getattr(s, "forced", False)), bool(getattr(s, "is_cc", False)), bool(getattr(s, "is_sdh", False)))
+
+
+def _is_dv(s) -> bool:
+    """True if the stream is a Dolby Vision video track."""
+    if getattr(s, "type", "") != "video":
+        return False
+    
+    if (getattr(s, "video_range", "") or "").upper() == "DV":
+        return True
+    
+    codecs = (getattr(s, "codecs", "") or "").lower()
+    return any(codecs.startswith(p) for p in DV_CODEC_PREFIXES)
+
+
+def _normalize_lang(s) -> None:
+    """Uniform the language code to its primary subtag (e.g. 'it-IT' -> 'it')."""
+    if s.type not in ("audio", "subtitle"):
+        return
+    
+    base = getattr(s, "resolved_language", "") or getattr(s, "language", "")
+    if base:
+        s.language = base.split("-")[0].lower()
+
+
+class Generic_Downloader(BaseDownloader):
+    def __init__(self, sources: List[Dict[str, Any]], output_path: Optional[str] = None, max_segments: Optional[int] = None, max_time=None, cookies: Optional[Dict[str, str]] = None, custom_filters: Optional[Dict[str, str]] = None,) -> None:
+        """
+        Parameters:
+            - sources: list of source dicts (see class docstring).
+            - output_path: final output file path. Default: "download.{ext}".
+            - max_segments: cap downloaded segments per source (for testing).
+            - max_time: cap downloaded duration, e.g. "01:00:00" or seconds.
+            - cookies: default cookies applied to sources without their own.
+            - custom_filters: optional {"video","audio","subtitle"} selector
+              overrides; otherwise the values from config.json are used.
+        """
+        self.sources = [dict(s or {}) for s in (sources or [])]
+        self.cookies = cookies or {}
+        self.max_segments = max_segments
+        self.max_time = _parse_max_time(max_time)
+        self.custom_filters = custom_filters or {}
+        self._active: List[Tuple[MediaDownloader, Dict[str, Any]]] = []
+        self._dv_stream = None
+        self.other_tracks: list = []
+        logger.info(f"Initialized GENERIC_Downloader with {len(self.sources)} source(s), max_segments={self.max_segments}")
+        super().__init__(output_path, "_generic_temp")
+
+    def _fetch_manifest_content(self, url: str, headers: Dict[str, str]) -> Optional[str]:
+        """Fetch raw manifest text (needed only when a source forces a protocol, because the type auto-detection keys off the URL extension)."""
+        try:
+            with create_client(headers=headers or get_headers(), timeout=20, follow_redirects=True) as c:
+                resp = c.get(url)
+                resp.raise_for_status()
+                return resp.text
+        except Exception as exc:
+            logger.error(f"Failed to pre-fetch manifest {url!r}: {exc}")
+            return None
+
+    def _parse_sources(self) -> List[Tuple[MediaDownloader, Dict[str, Any]]]:
+        """Parse every source into a MediaDownloader with its streams. The source dict is kept alongside for reference (e.g. headers, protocol)."""
+        parsed: List[Tuple[MediaDownloader, Dict[str, Any]]] = []
+        for i, source in enumerate(self.sources):
+            label = source.get("label") or f"src{i}"
+            url = self._resolve_url(str(source.get("url") or "").strip())
+            if not url:
+                console.print(f"[yellow]Source '{label}' has no url, skipping.")
+                continue
+
+            out_dir = os_manager.get_sanitize_path(f"{self.output_dir}/{label}")
+            os_manager.create_path(out_dir)
+
+            protocol = source.get("protocol")
+            content = self._fetch_manifest_content(url, source.get("headers") or {}) if protocol else None
+
+            md = MediaDownloader(
+                url=url,
+                output_dir=out_dir,
+                filename=self.filename_base,
+                headers=source.get("headers") or {},
+                cookies=source.get("cookies") or self.cookies,
+                download_id=self.download_id,
+                site_name=self.site_name,
+                max_segments=self.max_segments,
+                max_time=self.max_time,
+                manifest_content=content,
+                manifest_protocol=protocol,
+            )
+
+            md.parse_stream(show_table=False)
+            for s in md.streams:
+                setattr(s, "_src_label", label)
+                _normalize_lang(s)
+
+            parsed.append((md, source))
+        return parsed
+
+    def _select(self, parsed: List[Tuple[MediaDownloader, Dict[str, Any]]]) -> List:
+        # Merge + dedup (keep first occurrence in source order).
+        pool: list = []
+        seen: set = set()
+        for md, _ in parsed:
+            for s in md.streams:
+                if getattr(s, "is_external", False):
+                    continue
+                sig = _track_signature(s)
+                if sig in seen:
+                    continue
+                seen.add(sig)
+                pool.append(s)
+
+        # Reset selection across ALL sources, then select once over the pool.
+        for md, _ in parsed:
+            for s in md.streams:
+                s.selected = False
+
+        f = self.custom_filters
+        v = f.get("video") or config_manager.config.get("DOWNLOAD", "select_video")
+        a = f.get("audio") or config_manager.config.get("DOWNLOAD", "select_audio")
+        sub = f.get("subtitle") or config_manager.config.get("DOWNLOAD", "select_subtitle")
+
+        # Check for the &dv companion tag in the video filter. If present, we run a first pass of selection on the non-DV pool with the main video filter.
+        dv_match = re.search(r'&dv(?:=([^&]*))?', v, re.IGNORECASE)
+        if dv_match:
+            dv_quality = (dv_match.group(1) or "worst").strip() or "worst"
+            v_main = (v[:dv_match.start()] + v[dv_match.end():]).strip() or "best"
+            non_dv_pool = [s for s in pool if not _is_dv(s)]
+            StreamSelector(v_main, a, sub, formatter=StreamSelectorFormatter()).apply(non_dv_pool)
+
+            dv_videos = [s for s in pool if _is_dv(s)]
+            if dv_videos:
+                StreamSelector(v, a, sub)._mark_dv_companion(dv_videos, dv_quality)
+        else:
+            StreamSelector(v, a, sub, formatter=StreamSelectorFormatter()).apply(pool)
+
+        # If a DV companion was selected, keep a reference to it for special handling in the download and muxing phases.
+        self._dv_stream = next((s for s in pool if getattr(s, "dv_companion", False)), None)
+        if self._dv_stream is not None:
+            self._dv_stream.selected = True
+            logger.info(f"&dv: companion selected -> {self._dv_stream}")
+
+        return [s for s in pool if s.selected]
+
+    def _setup_dv_companion(self) -> None:
+        """Re download the manifest of the DV companion in a dedicated MediaDownloader, to isolate it from the main video stream and avoid filename collisions on disk (both have the same "{filename}.{ext}")."""
+        if self._dv_stream is None:
+            return
+
+        owner = next(((md, src) for md, src in self._active if self._dv_stream in md.streams), None)
+        if owner is None:
+            self._dv_stream = None
+            return
+
+        md, source = owner
+        dv_id = self._dv_stream.id
+        dv_res = self._dv_stream.resolution
+        self._dv_stream.selected = False
+
+        dv_dir = os_manager.get_sanitize_path(f"{self.output_dir}/_dv")
+        os_manager.create_path(dv_dir)
+        content = self._fetch_manifest_content(md.url, source.get("headers") or {}) if source.get("protocol") else None
+
+        dv_md = MediaDownloader(
+            url=md.url, output_dir=dv_dir, filename=self.filename_base,
+            headers=source.get("headers") or {}, cookies=source.get("cookies") or self.cookies,
+            download_id=self.download_id, site_name=self.site_name,
+            max_segments=self.max_segments, max_time=self.max_time,
+            manifest_content=content, manifest_protocol=source.get("protocol"),
+        )
+        dv_md.parse_stream(show_table=False)
+
+        target = next((s for s in dv_md.streams if s.id == dv_id), None)
+        if target is None:
+            target = next((s for s in dv_md.streams if s.type == "video" and (s.video_range or "").upper() == "DV" and s.resolution == dv_res), None)
+        
+        if target is None:
+            logger.warning("&dv: DV companion not found on re-parse — skipping DV track")
+            self._dv_stream = None
+            return
+
+        for s in dv_md.streams:
+            s.selected = (s is target)
+        
+        setattr(target, "_src_label", "dv")
+        self._dv_stream = target
+        self._active.append((dv_md, source))
+        logger.info(f"&dv: companion isolated in dedicated downloader -> {target}")
+    
+    def _stop_all(self) -> None:
+        if self.download_id:
+            download_tracker.request_stop(self.download_id)
+        for md, _ in self._active:
+            md._stop_event.set()
+            md._cancel_all_loops()
+
+    def _run_downloads(self) -> bool:
+        """Download every selected stream of every source concurrently on ONE shared progress bar. Returns False if cancelled (Ctrl+C)."""
+        for md, source in self._active:
+            md.set_key(source.get("key"))
+            sel = [s for s in md.streams if s.selected and not s.is_external and s.type in _MEDIA_TYPES]
+
+            # Warn early if a source has encrypted tracks but no way to decrypt them.
+            # Without this the file silently merges still-encrypted (the audio-without-key case).
+            def _is_encrypted(s) -> bool:
+                drm = getattr(s, "drm", None)
+                try:
+                    return bool(drm and drm.is_encrypted())
+                except Exception:
+                    return False
+
+            encrypted_sel = [s for s in sel if _is_encrypted(s)]
+            if encrypted_sel and not source.get("key") and not source.get("license_url"):
+                label = source.get("label") or (str(source.get("url") or "?")[:60])
+                kinds = ", ".join(sorted({s.type for s in encrypted_sel}))
+                console.print(
+                    f"[bold red][!] WARNING[/bold red] Source '[yellow]{label}[/yellow]': "
+                    f"{len(encrypted_sel)} encrypted track(s) ([cyan]{kinds}[/cyan]) but no "
+                    f"[bold]key[/bold]/[bold]license_url[/bold] provided - these tracks will stay encrypted."
+                )
+                logger.error(f"Generic source '{label}': encrypted {kinds} stream(s) without key/license — will remain encrypted")
+
+            md._session_live_decrypt = bool(sel) and all(getattr(s, "supports_live_decryption", False) for s in sel)
+            md._prepare_labels()
+
+        def _safe_download(md, stream, bm) -> None:
+            try:
+                md._download_stream(stream, bm)
+            except Exception as exc:
+                logger.error(f"Stream download error ({stream.type}/{getattr(stream, 'language', '')}): {exc}", exc_info=True)
+
+        bar = DownloadBarManager(self.download_id)
+        stop_event = threading.Event()
+        threads: List[threading.Thread] = []
+        try:
+            with bar as bm:
+                for md, _ in self._active:
+                    bm.add_prebuilt_tasks(md._get_prebuilt_tasks())
+
+                for md, _ in self._active:
+                    for s in md.streams:
+                        if s.selected and not s.is_external and s.type in _MEDIA_TYPES:
+                            t = threading.Thread(target=_safe_download, args=(md, s, bm), daemon=True)
+                            threads.append(t)
+                            t.start()
+
+                join_interruptible(threads, stop_event)
+                bm.finish_all_tasks()
+
+        except KeyboardInterrupt:
+            logger.warning("KeyboardInterrupt — stopping all hybrid sources")
+            self._stop_all()
+            stop_event.set()
+            join_interruptible(threads, threading.Event(), hard_timeout=15.0)
+            return False
+
+        if any(md._stop_check() for md, _ in self._active):
+            return False
+        return True
+
+    def _dv_entry(self, video_track: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrap the downloaded Dolby Vision video file as an 'other video' track consumable by ``build_hybrid_output`` (mkvmerge)."""
+        path = video_track["path"]
+        probe = probe_media_file(path) or {}
+        entry = {
+            "path": path, "url": "", "type": "video:dv", "kind": "video", "tag": "dv",
+            "language": "und", "name": "Dolby Vision",
+            "size": video_track.get("size", 0), "probe": probe,
+        }
+        entry.update(probe)
+        return entry
+
+    def _collect_status(self) -> Dict[str, Any]:
+        """Assemble a combined status dict (video/audios/subtitles) for muxing."""
+        status: Dict[str, Any] = {
+            "video": None, "audios": [], "subtitles": [],
+            "external_audios": [], "external_subtitles": [], "other_tracks": [],
+            "other_tracks_downloaded": [],
+        }
+        
+        for md, _ in self._active:
+            md_status = md._build_status([], [])
+
+            sel_audio_langs = [
+                (getattr(s, "resolved_language", "") or getattr(s, "language", "") or "und")
+                for s in md.streams if s.selected and s.type == "audio"
+            ]
+
+            md_video = md_status.get("video")
+            if md_video:
+                is_dv = self._dv_stream is not None and self._dv_stream in md.streams
+                
+                if is_dv:
+                    status["other_tracks_downloaded"].append(self._dv_entry(md_video))
+                elif status["video"] is None:
+                    status["video"] = md_video
+
+            for i, a in enumerate(md_status.get("audios", []) or []):
+                lang = sel_audio_langs[i] if i < len(sel_audio_langs) else (a.get("name") or "und")
+                status["audios"].append({"path": a["path"], "name": a.get("name") or lang, "language": lang})
+
+            for sub in md_status.get("subtitles", []) or []:
+                if sub.get("path"):
+                    status["subtitles"].append(sub)
+        
+        return status
+
+    def start(self) -> Tuple[Optional[str], bool, Optional[str]]:
+        try:
+            return self._start()
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Interrupt received — stopping all sources...")
+            logger.warning("KeyboardInterrupt during hybrid pipeline")
+            self._stop_all()
+            
+            if self.download_id:
+                download_tracker.complete_download(self.download_id, success=False, error="cancelled")
+            return None, True, "cancelled"
+
+    def _start(self) -> Tuple[Optional[str], bool, Optional[str]]:
+        if self.file_already_exists:
+            console.print("[yellow]File already exists.")
+            return self.output_path, False, None
+
+        os_manager.create_path(self.output_dir)
+
+        # ── 1) Parse every source
+        parsed = self._parse_sources()
+        if not parsed:
+            return None, True, "no sources parsed"
+
+        # ── 2-3) Merge + dedup + single selection
+        selected = self._select(parsed)
+
+        all_streams = [s for md, _ in parsed for s in md.streams if not s.is_external]
+        if all_streams:
+            console.print(build_table(all_streams))
+
+        if not selected:
+            console.print("[yellow][HYBRID] No track selected.")
+            return None, True, "no tracks selected"
+
+        self._active = [(md, src) for md, src in parsed if any(s.selected and not s.is_external and s.type in _MEDIA_TYPES for s in md.streams)]
+        self._setup_dv_companion()
+        self._active = [(md, src) for md, src in self._active if any(s.selected and not s.is_external and s.type in _MEDIA_TYPES for s in md.streams)]
+
+        # ── 4) Concurrent download (clean Ctrl+C) 
+        if self.download_id:
+            download_tracker.update_status(self.download_id, "Downloading ...")
+
+        if not self._run_downloads():
+            if self.download_id:
+                download_tracker.complete_download(self.download_id, success=False, error="cancelled")
+            return None, True, "cancelled"
+
+        # ── 5) Mux
+        status = self._collect_status()
+        if self._no_media_downloaded(status):
+            logger.error("No media downloaded")
+            if self.download_id:
+                download_tracker.complete_download(self.download_id, success=False, error="No media downloaded")
+            return None, True, "No media downloaded"
+
+        if self.download_id:
+            download_tracker.update_status(self.download_id, "Muxing ...")
+
+        final_file = self._merge_files(status)
+        if not final_file:
+            if self.download_id:
+                download_tracker.complete_download(self.download_id, success=False, error="Merge failed")
+            return None, True, "Merge failed"
+
+        self._finalize(final_file=final_file)
+        return self.output_path, False, None

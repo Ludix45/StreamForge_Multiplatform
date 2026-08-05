@@ -1,0 +1,39 @@
+# 09.06.26
+# ruff: noqa: E402
+
+import os
+import sys
+
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(src_path)
+
+
+from VibraVid.utils import config_manager
+from VibraVid.utils import setup_logger
+from VibraVid.core.downloader import Generic_Downloader
+
+
+setup_logger()
+conf_extension = config_manager.config.get("PROCESS", "extension")
+
+
+SOURCES = [
+    {
+        "url": "<url>",
+        "key": "<key>"
+    },
+    {
+        "url": "<url>",
+        "key": "<key>"
+    },
+]
+
+
+generic_process = Generic_Downloader(
+    sources=SOURCES,
+    output_path=fr".\Video\Custom.{conf_extension}"
+)
+
+
+out_path, need_stop, error = generic_process.start()
+print(f"Output path: {out_path}, Need stop: {need_stop}, error: {error}")

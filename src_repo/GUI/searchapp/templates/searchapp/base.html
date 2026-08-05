@@ -1,0 +1,623 @@
+{% load static %}
+<!doctype html>
+<html lang="it">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#0a0a0a" id="theme-color-meta" />
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script>
+			tailwind.config = {
+				darkMode: "class",
+				theme: {
+					extend: {
+						animation: {
+							"fade-in": "fadeIn 0.6s ease-out",
+							"slide-in": "slideIn 0.5s ease-out",
+							"zoom-in": "zoomIn 0.4s ease-out",
+						},
+						keyframes: {
+							fadeIn: {
+								"0%": { opacity: "0" },
+								"100%": { opacity: "1" },
+							},
+							slideIn: {
+								"0%": {
+									transform: "translateY(20px)",
+									opacity: "0",
+								},
+								"100%": {
+									transform: "translateY(0)",
+									opacity: "1",
+								},
+							},
+							zoomIn: {
+								"0%": {
+									transform: "scale(0.95)",
+									opacity: "0",
+								},
+								"100%": { transform: "scale(1)", opacity: "1" },
+							},
+						},
+					},
+				},
+			};
+		</script>
+		<style>
+			@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+
+			:root {
+				--navbar-height: 4rem;
+			}
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family:
+					"Inter",
+					-apple-system,
+					BlinkMacSystemFont,
+					sans-serif;
+				-webkit-font-smoothing: antialiased;
+				-moz-osx-font-smoothing: grayscale;
+				transition:
+					background-color 0.3s ease,
+					color 0.3s ease;
+			}
+
+			/* Theme transition */
+			.theme-transition {
+				transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			}
+
+			/* Smooth scrollbar */
+			::-webkit-scrollbar {
+				width: 8px;
+				height: 8px;
+			}
+			::-webkit-scrollbar-track {
+				background: var(--scrollbar-track);
+			}
+			::-webkit-scrollbar-thumb {
+				background: var(--scrollbar-thumb);
+				border-radius: 4px;
+			}
+			::-webkit-scrollbar-thumb:hover {
+				background: var(--scrollbar-thumb-hover);
+			}
+
+			/* Dark theme scrollbar */
+			.dark {
+				--scrollbar-track: #0a0a0a;
+				--scrollbar-thumb: #333;
+				--scrollbar-thumb-hover: #555;
+			}
+
+			/* Card hover effect */
+			.card-hover {
+				transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			}
+			.card-hover:hover {
+				transform: scale(1.05) translateY(-5px);
+				z-index: 10;
+			}
+
+			/* Smooth scroll */
+			html {
+				scroll-behavior: smooth;
+			}
+
+			/* Theme toggle animation */
+			.theme-toggle-icon {
+				transition:
+					transform 0.3s ease,
+					opacity 0.3s ease;
+			}
+
+			.theme-toggle-icon.hidden {
+				transform: rotate(180deg);
+				opacity: 0;
+			}
+		</style>
+		{% block extra_head %}{% endblock %}
+	</head>
+
+	<body class="bg-black text-white">
+		<!-- Top Navigation -->
+		<nav
+			class="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md transition-all duration-300"
+			id="navbar"
+		>
+			<div
+				class="w-full px-3 sm:px-5 lg:px-8 h-[var(--navbar-height)] flex items-center justify-between"
+			>
+				<!-- Logo -->
+				<a
+					href="{% url 'search_home' %}"
+					class="flex items-center gap-2 group"
+				>
+					<div class="flex flex-col">
+						<span
+							class="text-xl font-black text-white tracking-tighter uppercase"
+							>ARRO<span class="text-red-600">WAR</span></span
+						>
+						<span class="text-xs text-gray-400"
+							>v{{ app_version }}</span
+						>
+					</div>
+				</a>
+
+				<!-- Hamburger Button (mobile) -->
+				<button
+					id="hamburger-btn"
+					class="lg:hidden p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+					onclick="toggleMobileMenu()"
+					aria-label="Menu"
+				>
+					<svg
+						id="hamburger-icon"
+						class="w-6 h-6"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 6h16M4 12h16M4 18h16"
+						></path>
+					</svg>
+					<svg
+						id="close-icon"
+						class="w-6 h-6 hidden"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						></path>
+					</svg>
+				</button>
+
+				<!-- Navigation Menu (desktop) -->
+				<div class="hidden lg:flex items-center gap-8">
+					<a
+						href="{% url 'download_dashboard' %}"
+						class="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2"
+					>
+						<svg
+							class="w-4 h-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+							></path>
+						</svg>
+						Downloads
+					</a>
+					<a
+						href="{% url 'watchlist' %}"
+						class="text-sm font-medium text-red-500 hover:text-red-400 transition-colors flex items-center gap-2"
+					>
+						<svg
+							class="w-4 h-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+							></path>
+						</svg>
+						Watchlist
+					</a>
+					{% if show_arr_stack_nav %}
+					<a
+						href="{% url 'arr_stack' %}"
+						class="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2"
+					>
+						<svg
+							class="w-4 h-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 8h14M5 12h14M5 16h10"
+							></path>
+						</svg>
+						Coda ARR
+					</a>
+					{% endif %}
+					<a
+						href="{% url 'settings_editor' %}"
+						class="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2"
+					>
+						<svg
+							class="w-4 h-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+							></path>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+							></path>
+						</svg>
+						Impostazioni
+					</a>
+					<a
+						href="https://github.com/AstraeLabs/VibraVid"
+						target="_blank"
+						class="text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center gap-2"
+					>
+						<svg
+							class="w-4 h-4"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+							/>
+						</svg>
+						GitHub
+					</a>
+					<a
+						href="https://ko-fi.com/arrowar"
+						target="_blank"
+						class="text-sm font-medium text-red-500 hover:text-red-400 transition-colors flex items-center gap-2"
+					>
+						<svg
+							class="w-4 h-4"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+							/>
+						</svg>
+						Donations
+					</a>
+				</div>
+			</div>
+
+			<!-- Mobile Menu -->
+			<div
+				id="mobile-menu"
+				class="lg:hidden hidden border-t border-gray-800 bg-black/95 backdrop-blur-md"
+			>
+				<div class="px-4 py-4 space-y-1">
+					<a
+						href="{% url 'search_home' %}"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+							></path>
+						</svg>
+						Cerca
+					</a>
+					<a
+						href="{% url 'download_dashboard' %}"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+							></path>
+						</svg>
+						Downloads
+					</a>
+					<a
+						href="{% url 'watchlist' %}"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+							></path>
+						</svg>
+						Watchlist
+					</a>
+					{% if show_arr_stack_nav %}
+					<a
+						href="{% url 'arr_stack' %}"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 8h14M5 12h14M5 16h10"
+							></path>
+						</svg>
+						Coda ARR
+					</a>
+					{% endif %}
+					<a
+						href="{% url 'settings_editor' %}"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+							></path>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+							></path>
+						</svg>
+						Impostazioni
+					</a>
+					<div class="border-t border-gray-800 my-2"></div>
+					<a
+						href="https://github.com/AstraeLabs/VibraVid"
+						target="_blank"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+							/>
+						</svg>
+						GitHub
+					</a>
+					<a
+						href="https://ko-fi.com/arrowar"
+						target="_blank"
+						class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 hover:text-red-400 hover:bg-white/10 rounded-lg transition-colors"
+					>
+						<svg
+							class="w-5 h-5"
+							fill="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+							/>
+						</svg>
+						Donations
+					</a>
+				</div>
+			</div>
+		</nav>
+
+		<!-- Update banner — shown when a newer version is available on GitHub -->
+		<div id="update-banner" class="hidden fixed top-[var(--navbar-height)] left-0 right-0 z-40 bg-blue-700 text-white text-sm px-4 py-2 flex items-center justify-between gap-3">
+			<span id="update-banner-text"></span>
+			<div class="flex items-center gap-3 flex-shrink-0">
+				<a id="update-release-link" href="#" target="_blank" rel="noopener" class="underline font-medium hover:text-blue-100">Release notes</a>
+				<button id="update-trigger-btn" class="bg-white text-blue-700 font-semibold px-3 py-1 rounded hover:bg-blue-50 transition-colors">Update now</button>
+				<button onclick="dismissUpdateBanner()" class="text-blue-200 hover:text-white transition-colors" aria-label="Dismiss">&times;</button>
+			</div>
+		</div>
+		<script>
+		(function() {
+			var DISMISS_KEY = 'vibravid_update_dismissed_v';
+			function dismissUpdateBanner() {
+				var banner = document.getElementById('update-banner');
+				if (banner) {
+					var ver = banner.dataset.latest || '';
+					localStorage.setItem(DISMISS_KEY + ver, '1');
+					banner.classList.add('hidden');
+				}
+			}
+			window.dismissUpdateBanner = dismissUpdateBanner;
+
+			fetch('/api/version/check/')
+				.then(function(r) { return r.ok ? r.json() : null; })
+				.then(function(data) {
+					if (!data || !data.update_available) return;
+					var dismissed = localStorage.getItem(DISMISS_KEY + data.latest);
+					if (dismissed) return;
+					var banner = document.getElementById('update-banner');
+					var text = document.getElementById('update-banner-text');
+					var link = document.getElementById('update-release-link');
+					var btn = document.getElementById('update-trigger-btn');
+					text.textContent = 'VibraVid ' + data.latest + ' is available (current: ' + data.current + ')';
+					if (link) link.href = data.html_url || '#';
+					banner.dataset.latest = data.latest;
+					banner.classList.remove('hidden');
+
+					btn.addEventListener('click', function() {
+						btn.disabled = true;
+						btn.textContent = 'Updating…';
+						fetch('/api/version/update/', {method: 'POST', headers: {'X-CSRFToken': getCookie('csrftoken')}})
+							.then(function(r) { return r.json(); })
+							.then(function(d) {
+								if (d && d.success) {
+									btn.textContent = 'Restarting…'; if (d.message) text.textContent = d.message;
+									setTimeout(function() { location.reload(); }, 30000);
+								} else {
+									btn.disabled = false; btn.textContent = 'Retry'; text.textContent = (d && d.message) ? d.message : 'Update failed — update manually';
+								}
+							})
+							.catch(function() { btn.disabled = false; btn.textContent = 'Retry'; text.textContent = 'Update failed — update manually'; });
+					});
+				})
+				.catch(function() {});
+
+			function getCookie(name) {
+				var v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+				return v ? v[2] : '';
+			}
+		})();
+		</script>
+
+		<!-- Main Content -->
+		<main class="relative min-h-screen pt-[var(--navbar-height)]">
+			<!-- Messages Toast -->
+			{% if messages %}
+			<div
+				id="toast-container"
+				class="fixed top-24 right-4 z-50 space-y-3 max-w-md animate-slide-in"
+			>
+				{% for message in messages %}
+				<div
+					class="toast-item {% if message.tags == 'success' %}bg-green-600{% else %}bg-red-600{% endif %} text-white px-5 py-4 rounded-lg shadow-2xl backdrop-blur-xl flex items-start gap-3 transition-all duration-500"
+				>
+					<svg
+						class="w-5 h-5 flex-shrink-0 mt-0.5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						{% if message.tags == 'success' %}
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M5 13l4 4L19 7"
+						></path>
+						{% else %}
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						></path>
+						{% endif %}
+					</svg>
+					<span class="text-sm font-medium flex-1">{{ message }}</span>
+					<button onclick="this.closest('.toast-item').remove()" class="ml-2 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+						</svg>
+					</button>
+				</div>
+				{% endfor %}
+			</div>
+			<script>
+				// Auto-dismiss toasts after 5 seconds
+				document.addEventListener('DOMContentLoaded', function() {
+					const toasts = document.querySelectorAll('.toast-item');
+					toasts.forEach(function(toast, i) {
+						setTimeout(function() {
+							toast.style.opacity = '0';
+							toast.style.transform = 'translateX(100%)';
+							setTimeout(function() { toast.remove(); }, 500);
+						}, 4000 + i * 300);
+					});
+				});
+			</script>
+			{% endif %}
+
+			<div class="w-full px-3 sm:px-5 lg:px-8">
+				{% block content %}{% endblock %}
+			</div>
+		</main>
+
+		<script>
+			// Mobile menu toggle
+			function toggleMobileMenu() {
+				const menu = document.getElementById("mobile-menu");
+				const hamburgerIcon = document.getElementById("hamburger-icon");
+				const closeIcon = document.getElementById("close-icon");
+
+				menu.classList.toggle("hidden");
+				hamburgerIcon.classList.toggle("hidden");
+				closeIcon.classList.toggle("hidden");
+			}
+
+			// Close mobile menu on resize to desktop
+			window.addEventListener("resize", () => {
+				if (window.innerWidth >= 1024) {
+					const menu = document.getElementById("mobile-menu");
+					const hamburgerIcon =
+						document.getElementById("hamburger-icon");
+					const closeIcon = document.getElementById("close-icon");
+					if (menu && !menu.classList.contains("hidden")) {
+						menu.classList.add("hidden");
+						hamburgerIcon.classList.remove("hidden");
+						closeIcon.classList.add("hidden");
+					}
+				}
+			});
+
+			// Navbar scroll effect
+			window.addEventListener("scroll", () => {
+				const nav = document.getElementById("navbar");
+				if (window.scrollY > 20) {
+					nav.classList.replace("bg-black/50", "bg-black/95");
+				} else {
+					nav.classList.replace("bg-black/95", "bg-black/50");
+				}
+			});
+		</script>
+
+		{% block extra_scripts %}{% endblock %}
+	</body>
+</html>

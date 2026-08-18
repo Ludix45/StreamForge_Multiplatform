@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://kotlinlang.org/"><img src="https://img.shields.io/badge/Kotlin-Multiplatform-blue.svg?logo=kotlin" alt="Kotlin Multiplatform"></a>
   <a href="https://www.jetbrains.com/lp/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose-Multiplatform-orange.svg?logo=jetpackcompose" alt="Compose Multiplatform"></a>
-  <a href="https://github.com/Ludix45/StreamForge_Multiplatform/releases/tag/v1.2.1"><img src="https://img.shields.io/github/v/release/Ludix45/StreamForge_Multiplatform" alt="Latest Version"></a>
+  <a href="https://github.com/Ludix45/StreamForge_Multiplatform/releases/"><img src="https://img.shields.io/github/v/release/Ludix45/StreamForge_Multiplatform?include_prereleases" alt="Latest Version"></a>
   <img src="https://img.shields.io/badge/JDK-21-red.svg" alt="JDK 21">
 </p>
 
@@ -26,8 +26,9 @@ StreamForge leverages advanced scraping technology and a robust playback engine 
 ### 📥 Download
 
 [![Download Windows Installer](https://img.shields.io/badge/Download-Windows%20.MSI-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Ludix45/StreamForge_Multiplatform/releases/download/v1.2.1/StreamForge-1.2.1.msi)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20.APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Ludix45/StreamForge_Multiplatform/releases/download/v15/StreamForge.V15.apk)
 
-*For other platforms (macOS, Linux, Android), please check the [Releases](https://github.com/Ludix45/StreamForge_Multiplatform/releases) page.*
+*For other platforms (macOS, Linux), please check the [Releases](https://github.com/Ludix45/StreamForge_Multiplatform/releases) page.*
 
 ---
 

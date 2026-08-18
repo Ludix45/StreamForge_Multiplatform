@@ -87,7 +87,7 @@ compose.desktop {
             packageVersion = "1.2.1"
             vendor = "StreamForge"
             description = "Desktop companion for authorized StreamForge playback sources"
-            appResourcesRootDir.set(project.file("../packagingDir"))
+            appResourcesRootDir.set(project.file("packagingDir"))
 
 
 

@@ -1877,17 +1877,24 @@ fun PlayerScreen(
     var isControllerVisible by remember { mutableStateOf(true) }
     var showMirrorOptions by remember { mutableStateOf(false) }
     var showSubtitlesMenu by remember { mutableStateOf(false) }
+    var showAudioLanguageMenu by remember { mutableStateOf(false) }
     // Stato per la funzione zoom/riempi (limita bordi neri)
     var isZoomed by remember { mutableStateOf(false) }
     
     val appLang by viewModel.appLanguage.collectAsStateWithLifecycle()
     val subLang by viewModel.subtitleLanguage.collectAsStateWithLifecycle()
     val activeItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
-    
+    val isFavorite by viewModel.isCurrentMediaFavorite.collectAsStateWithLifecycle()
+    val audioLang = activeItem?.providerLanguage ?: "it"
+    // Il cambio lingua audio (it/en) è disponibile solo dove il provider espone versioni
+    // separate del contenuto per lingua (attualmente StreamingCommunity).
+    val supportsAudioLanguageSwitch = provider == "StreamingCommunity"
+
     val subtitleOptions = listOf("off" to "Disattivati") + listOf(
         "it" to "Italiano", "en" to "English", "es" to "Español", "fr" to "Français",
         "de" to "Deutsch", "pt" to "Português", "ru" to "Русский", "ja" to "日本語", "ko" to "한국어", "zh" to "中文"
     )
+    val audioLanguageOptions = listOf("it" to "Italiano", "en" to "English")
 
     // Set and release landscape orientation, hide/restore system bars, and keep screen on
     DisposableEffect(Unit) {
@@ -2100,6 +2107,22 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 16.dp, end = 16.dp)
             ) {
+                // Pulsante Preferiti: permette di aggiungere/rimuovere il contenuto dai
+                // preferiti senza dover uscire dal player.
+                IconButton(
+                    onClick = { viewModel.toggleFavorite() },
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Rimuovi dai preferiti" else "Aggiungi ai preferiti",
+                        tint = if (isFavorite) Color.Red else Color.White
+                    )
+                }
+
                 // Pulsante Riempi Schermo (Zoom) per tagliare i bordi neri
                 IconButton(
                     onClick = { isZoomed = !isZoomed },
@@ -2113,6 +2136,51 @@ fun PlayerScreen(
                         contentDescription = "Espandi a tutto schermo",
                         tint = Color.White
                     )
+                }
+
+                // Pulsante Lingua Audio (solo dove il provider supporta versioni multilingua)
+                if (supportsAudioLanguageSwitch) {
+                    Box {
+                        IconButton(
+                            onClick = { showAudioLanguageMenu = true },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = "Lingua Audio",
+                                tint = Color.White
+                            )
+                        }
+
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showAudioLanguageMenu,
+                            onDismissRequest = { showAudioLanguageMenu = false },
+                            modifier = Modifier.background(Color(0xFF2C2C2C))
+                        ) {
+                            audioLanguageOptions.forEach { (code, name) ->
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(name, color = Color.White)
+                                            if (audioLang == code) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Icon(Icons.Default.Check, contentDescription = "Selezionato", tint = ForgeOrange, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        showAudioLanguageMenu = false
+                                        if (audioLang != code) {
+                                            viewModel.switchPlaybackLanguage(code, exoPlayer.currentPosition)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Pulsante Sottotitoli

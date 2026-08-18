@@ -22,6 +22,10 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "My Application"
+rootProject.name = "StreamForge"
 
 include(":app")
+// Shared Kotlin Multiplatform code used by the Android and desktop applications.
+include(":shared")
+// Compose Desktop application packaged for Windows, Linux, and macOS.
+include(":desktopApp")

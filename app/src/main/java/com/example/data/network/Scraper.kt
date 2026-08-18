@@ -7,6 +7,8 @@ import com.example.data.model.MediaItem
 import com.example.data.model.Season
 import com.example.data.model.VideoParams
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
@@ -110,7 +112,8 @@ object Scraper {
             items.firstOrNull { it.providerLanguage == "it" } ?: items.first()
         }
 
-        scoreAndRank(deduplicated, query)
+        val ranked = scoreAndRank(deduplicated, query)
+        enrichList(ranked.take(20))
     }
 
     private fun parseScTitle(obj: JSONObject, lang: String, baseUrl: String): MediaItem {
@@ -376,7 +379,8 @@ object Scraper {
 
         // Deduplicate AU matches by id, then score and rank
         val deduplicated = list.distinctBy { it.id }
-        scoreAndRank(deduplicated, query)
+        val ranked = scoreAndRank(deduplicated, query)
+        enrichList(ranked.take(20))
     }
 
     private fun parseAuTitle(obj: JSONObject): MediaItem {
@@ -541,7 +545,8 @@ object Scraper {
         } catch (e: Exception) {
             Log.e(TAG, "Critical searchAnimeWorld failure", e)
         }
-        scoreAndRank(list, query)
+        val ranked = scoreAndRank(list, query)
+        enrichList(ranked.take(20))
     }
 
     suspend fun getAnimeWorldEpisodes(item: MediaItem): List<Episode> = withContext(Dispatchers.IO) {
@@ -669,7 +674,8 @@ object Scraper {
         } catch (e: Exception) {
             Log.e(TAG, "Critical searchEuroStreaming failure", e)
         }
-        scoreAndRank(list, query)
+        val ranked = scoreAndRank(list, query)
+        enrichList(ranked.take(20))
     }
 
     suspend fun getEuroStreamingSeasons(item: MediaItem): List<Season> = withContext(Dispatchers.IO) {
@@ -843,6 +849,43 @@ object Scraper {
             Log.e(TAG, "MaxStream extraction failed", e)
             null
         }
+    }
+
+    private suspend fun enrichList(items: List<MediaItem>): List<MediaItem> = withContext(Dispatchers.IO) {
+        items.map { item ->
+            async { enrichWithTMDB(item) }
+        }.awaitAll()
+    }
+
+    suspend fun enrichWithTMDB(item: MediaItem): MediaItem = withContext(Dispatchers.IO) {
+        // Se ha già un poster TMDB o è Cinezo (che usa già TMDB), non facciamo nulla
+        if (!item.posterUrl.isNullOrBlank() && item.posterUrl!!.contains("tmdb.org")) return@withContext item
+        
+        val type = if (item.isMovie) "movie" else "tv"
+        // Pulizia nome: rimuove (2024), (SUB), [ITA] etc per migliorare il matching su TMDB
+        val cleanName = item.name
+            .replace(Regex("""\(\d{4}\)"""), "")
+            .replace(Regex("""\[.*?\]"""), "")
+            .replace(Regex("""\s+-\s+.*$"""), "")
+            .trim()
+            
+        val encodedQuery = URLEncoder.encode(cleanName, "UTF-8")
+        
+        try {
+            val url = "https://api.themoviedb.org/3/search/$type?api_key=$tmdbApiKey&query=$encodedQuery&language=it"
+            val json = HttpClient.get(url)
+            val results = JSONObject(json).optJSONArray("results")
+            if (results != null && results.length() > 0) {
+                val match = results.getJSONObject(0)
+                val path = match.optString("poster_path", "")
+                if (path.isNotEmpty() && path != "null") {
+                    return@withContext item.copy(posterUrl = "https://image.tmdb.org/t/p/w500$path")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "TMDB Enrichment failed for ${item.name}", e)
+        }
+        item
     }
 
     private const val DEFAULT_TMDB_API_KEY = "b74737aa76951bca42b32388047055c6"

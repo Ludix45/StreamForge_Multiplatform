@@ -16,3 +16,11 @@
 local.properties
 .env
 debug.keystore
+.gradle-user-home/
+.android-user-home/
+build/
+.gradle/
+work/
+*.msi
+*.dll
+desktopApp/build/

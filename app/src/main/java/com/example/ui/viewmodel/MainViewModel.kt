@@ -39,7 +39,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _providerLanguage = MutableStateFlow(prefs.getString("provider_language", "it") ?: "it")
     val providerLanguage = _providerLanguage.asStateFlow()
 
-    private val _subtitleLanguage = MutableStateFlow(prefs.getString("sub_language", "it") ?: "it")
+    // Sottotitoli disattivati di default: l'utente deve attivarli esplicitamente dal player.
+    private val _subtitleLanguage = MutableStateFlow(prefs.getString("sub_language", "off") ?: "off")
     val subtitleLanguage = _subtitleLanguage.asStateFlow()
 
     private val _tmdbApiKey = MutableStateFlow("c90967c3177c7d60362c59fa9cb4a333")
@@ -720,6 +721,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Extraction error", e)
                 _streamError.value = "Impossibile estrarre il link di streaming: ${e.message}"
+            } finally {
+                _isExtractingStream.value = false
+            }
+        }
+    }
+
+    // Cambia la lingua (it/en) del contenuto attualmente in riproduzione, senza uscire dal player.
+    // Al momento la scelta della lingua audio dipende dalla versione del sito sorgente
+    // (StreamingCommunity espone un dominio/versione "it" e una "en"), quindi il cambio
+    // richiede una nuova estrazione del link dello stream, non un semplice switch di traccia.
+    fun switchPlaybackLanguage(lang: String, currentPositionMillis: Long = 0L) {
+        val current = _selectedMediaItem.value ?: return
+        if (current.providerLanguage == lang) return
+
+        val provider = _selectedProvider.value
+        val currentEpisode = _currentPlayingEpisode.value
+        val currentSeason = _currentPlayingSeason.value
+        val positionBeforeSwitch = currentPositionMillis
+
+        prefs.edit().putString("provider_language", lang).apply()
+        _providerLanguage.value = lang
+        updateScraperSettings()
+
+        val updatedItem = current.copy(providerLanguage = lang)
+        _selectedMediaItem.value = updatedItem
+
+        if (provider != "StreamingCommunity") {
+            // Le altre fonti non hanno un concetto di lingua a livello di stream: non c'è altro da fare.
+            return
+        }
+
+        _isExtractingStream.value = true
+        _streamError.value = null
+
+        viewModelScope.launch {
+            try {
+                if (currentEpisode != null && currentSeason != null) {
+                    // Ricarica la lista episodi nella nuova versione linguistica, poi riestrae
+                    // lo stream dell'episodio che si stava guardando, mantenendo la posizione.
+                    val scSeasons = withContext(Dispatchers.IO) { Scraper.getStreamingCommunitySeasons(updatedItem) }
+                    _seasons.value = scSeasons
+                    val matchingSeason = scSeasons.find { it.number == currentSeason }
+                    val newEpisodes = matchingSeason?.episodes ?: emptyList()
+                    _episodes.value = newEpisodes
+                    val matchingEpisode = newEpisodes.find { it.number == currentEpisode.number } ?: currentEpisode
+
+                    _playbackResumePosition.value = positionBeforeSwitch
+                    val streamUrl = withContext(Dispatchers.IO) {
+                        Scraper.extractStreamingCommunityUrl(updatedItem, matchingEpisode.id)
+                    }
+                    _currentPlayingEpisode.value = matchingEpisode
+                    _activeStreamUrl.value = streamUrl
+                } else {
+                    // Film: riestrae semplicemente il link nella nuova lingua, mantenendo la posizione.
+                    _playbackResumePosition.value = positionBeforeSwitch
+                    val streamUrl = withContext(Dispatchers.IO) {
+                        Scraper.extractStreamingCommunityUrl(updatedItem, null)
+                    }
+                    _activeStreamUrl.value = streamUrl
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Switch playback language failed", e)
+                _streamError.value = "Impossibile cambiare lingua: ${e.message}"
             } finally {
                 _isExtractingStream.value = false
             }

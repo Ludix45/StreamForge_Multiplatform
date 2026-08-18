@@ -82,12 +82,12 @@ compose.desktop {
 
         nativeDistributions {
             // Gradle builds the package format supported by the current host OS.
-            targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Dmg)
+            targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Dmg)
             packageName = "StreamForge"
             packageVersion = "1.2.1"
             vendor = "StreamForge"
             description = "Desktop companion for authorized StreamForge playback sources"
-            appResourcesRootDir.set(project.file("packagingDir"))
+            appResourcesRootDir.set(project.file("../packagingDir"))
 
 
 

@@ -65,11 +65,16 @@ import com.example.data.network.Scraper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.awt.Desktop
+import java.net.URI
 import java.net.URL
 import javax.imageio.ImageIO
 import okhttp3.Request
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import javax.swing.JEditorPane
+import javax.swing.event.HyperlinkEvent
+import androidx.compose.ui.awt.SwingPanel
 
 
 /** Pages available in the desktop companion. They mirror the Android navigation model. */
@@ -91,6 +96,7 @@ private enum class Provider(val label: String) {
 @Composable
 fun StreamForgeDesktopApp() {
     val scope = rememberCoroutineScope()
+    // ... (rest of the variables)
     var page by remember { mutableStateOf(DesktopPage.HOME) }
     var selectedProvider by remember { mutableStateOf(Provider.STREAMING_COMMUNITY) }
     var query by remember { mutableStateOf("") }
@@ -173,10 +179,27 @@ fun StreamForgeDesktopApp() {
             ) {
                 Text(
                     "MPV non è riuscito ad avviarsi",
-                    style = MaterialTheme.typography.headlineSmall
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color(0xFFFF7900)
                 )
-                Text(mpvFailure!!, color = Color(0xFFFFB4AB))
-                Text("Non è stato avviato VLC automaticamente: il player richiesto è MPV.")
+                
+                // Usiamo SwingPanel per renderizzare l'HTML interattivo (link cliccabili)
+                SwingPanel(
+                    factory = {
+                        JEditorPane("text/html", mpvFailure!!).apply {
+                            isEditable = false
+                            isOpaque = false
+                            background = java.awt.Color(0,0,0,0)
+                            addHyperlinkListener { e ->
+                                if (e.eventType == HyperlinkEvent.EventType.ACTIVATED) {
+                                    runCatching { Desktop.getDesktop().browse(e.url.toURI()) }
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = { mpvFailure = null; playerSession++ }) { Text("Riprova MPV") }
                     Button(onClick = { page = DesktopPage.DETAILS }) { Text("Indietro") }

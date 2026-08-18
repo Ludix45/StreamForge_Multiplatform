@@ -339,7 +339,40 @@ private class LibMpvHost(
         Thread({
             val library = loadLibMpv()
             if (library == null) {
-                EventQueue.invokeLater { onUnavailable("libmpv-2.dll non è disponibile per il player integrato.") }
+                val os = System.getProperty("os.name").lowercase()
+                val isWin = os.contains("win")
+                val isMac = os.contains("mac")
+                
+                val missingFile = when {
+                    isWin -> "libmpv-2.dll"
+                    isMac -> "libmpv.2.dylib"
+                    else -> "libmpv.so.2"
+                }
+
+                val installCmd = when {
+                    isMac -> "brew install mpv"
+                    os.contains("linux") -> {
+                        // Proviamo a suggerire apt come default per le distro comuni
+                        "sudo apt update && sudo apt install libmpv2"
+                    }
+                    else -> null
+                }
+
+                val sb = StringBuilder()
+                sb.append("<html><div style='text-align: center; color: #F3F5F8; font-family: sans-serif;'>")
+                sb.append("<h2 style='color: #FF7900;'>Componente di riproduzione mancante</h2>")
+                sb.append("<p>Per riprodurre i contenuti, StreamForge ha bisogno della libreria <b>$missingFile</b>.</p>")
+                
+                if (installCmd != null) {
+                    sb.append("<p>Puoi installarla rapidamente aprendo il terminale e scrivendo:</p>")
+                    sb.append("<code style='background: #29313E; padding: 4px 8px; border-radius: 4px; color: #3DDC84;'>$installCmd</code>")
+                }
+                
+                sb.append("<p style='margin-top: 20px;'>Per maggiori informazioni, visita il sito ufficiale:</p>")
+                sb.append("<a href='https://mpv.io/installation/' style='color: #3DDC84;'>mpv.io/installation</a>")
+                sb.append("</div></html>")
+
+                EventQueue.invokeLater { onUnavailable(sb.toString()) }
                 return@Thread
             }
             val context = library.mpv_create()
@@ -402,27 +435,53 @@ private class LibMpvHost(
 
 /** Locates the bundled libmpv runtime without copying Nuvio source code or its bridge. */
 private fun loadLibMpv(): LibMpvApi? {
+    val os = System.getProperty("os.name").lowercase()
+    val isWin = os.contains("win")
+    val isMac = os.contains("mac")
+    val libName = when {
+        isWin -> "libmpv-2.dll"
+        isMac -> "libmpv.2.dylib"
+        else -> "libmpv.so.2"
+    }
+    
     val override = System.getenv("STREAMFORGE_LIBMPV_PATH")?.let(::File)
     
     // 1. Official Compose Desktop resources directory
     val composeResourcesDir = System.getProperty("compose.application.resources.dir")?.let { File(it) }
-    val bundledDll = composeResourcesDir?.resolve("libmpv-2.dll")
+    val bundledLib = composeResourcesDir?.resolve(libName)
     
     // 2. Check in the same directory as the JAR (Standard for jpackage)
     val appDir = File(System.getProperty("user.dir"), "app")
-    val jpackageDll = File(appDir, "libmpv-2.dll")
+    val jpackageLib = File(appDir, libName)
     
     // 3. Check in the resources directory (Alternative)
-    val resourcesDll = File(appDir, "resources/libmpv-2.dll")
+    val resourcesLib = File(appDir, "resources/$libName")
     
     // 4. Fallback for development (Relative to reference project)
-    val localRuntime = generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
-        .map { it.resolve("NuvioDesktop-reference/composeApp/src/desktopMain/native/windows/runtime/libmpv-2.dll") }
-        .firstOrNull(File::isFile)
+    val localRuntime = if (isWin) {
+        generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+            .map { it.resolve("NuvioDesktop-reference/composeApp/src/desktopMain/native/windows/runtime/libmpv-2.dll") }
+            .firstOrNull(File::isFile)
+    } else null
         
     // 5. Fallback for development in current project resources
-    val currentResources = File("desktopApp/src/desktopMain/resources/libmpv-2.dll")
+    val currentResources = File("desktopApp/src/desktopMain/resources/$libName")
         
-    val dll = listOfNotNull(override, bundledDll, jpackageDll, resourcesDll, localRuntime, currentResources).firstOrNull(File::isFile) ?: return null
-    return runCatching { Native.load(dll.absolutePath, LibMpvApi::class.java) }.getOrNull()
+    val libFile = listOfNotNull(override, bundledLib, jpackageLib, resourcesLib, localRuntime, currentResources).firstOrNull(File::isFile)
+    
+    return try {
+        if (libFile != null) {
+            Native.load(libFile.absolutePath, LibMpvApi::class.java)
+        } else {
+            // Last resort: try to load from system path
+            val sysName = when {
+                isWin -> "mpv-2"
+                isMac -> "mpv.2"
+                else -> "mpv"
+            }
+            Native.load(sysName, LibMpvApi::class.java)
+        }
+    } catch (e: Exception) {
+        null
+    }
 }

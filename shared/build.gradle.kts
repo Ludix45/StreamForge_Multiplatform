@@ -28,10 +28,22 @@ kotlin {
             baseName = "Shared"
             isStatic = true
             xcf.add(this)
+            // Fix bundle ID warning
+            freeCompilerArgs += listOf("-Xbinary=bundleId=com.example.streamforge.shared")
         }
     }
 
     jvmToolchain(21)
+
+    targets.configureEach {
+        compilations.configureEach {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    freeCompilerArgs.add("-Xexpect-actual-classes")
+                }
+            }
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -185,7 +186,7 @@ fun StreamForgeApp() {
                                     }
                                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, darkBg))))
                                         IconButton(onClick = { currentPage = Page.SEARCH }, modifier = Modifier.padding(16.dp).background(Color.Black.copy(0.5f), RoundedCornerShape(8.dp))) {
-                                            Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                                         }
                                     }
                                 }

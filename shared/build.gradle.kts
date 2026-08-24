@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
@@ -15,6 +17,8 @@ kotlin {
     
     jvm("desktop")
     
+    // Configurazione XCFramework per iOS
+    val xcf = XCFramework("Shared")
     listOf(
         iosX64(),
         iosArm64(),
@@ -23,6 +27,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            xcf.add(this)
         }
     }
 
@@ -42,7 +47,7 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.ksoup)
+            implementation("com.fleeksoft.ksoup:ksoup:0.2.1")
             implementation(libs.kamel.image)
         }
         

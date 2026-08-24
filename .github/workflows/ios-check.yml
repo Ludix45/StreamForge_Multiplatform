@@ -23,15 +23,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Shared Framework for iOS
-        run: ./gradlew :shared:assembleSharedReleaseFramework
+      - name: Build Shared XCFramework
+        run: ./gradlew :shared:assembleSharedReleaseXCFramework
         
-      - name: Compile Kotlin iOS Simulator
-        run: ./gradlew :shared:compileKotlinIosSimulatorArm64
-
-      - name: Upload Shared Framework
+      - name: Upload XCFramework
         uses: actions/upload-artifact@v4
         with:
-          name: Shared-iOS-Framework
-          path: shared/build/cocoapods/framework/Shared.framework
-          if-no-files-found: ignore
+          name: Shared-XCFramework
+          path: shared/build/XCFrameworks/release

@@ -5,7 +5,6 @@ package com.example.ui.screens
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.net.Uri
-import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -30,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,31 +45,25 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.rounded.ArrowCircleLeft
-import androidx.compose.material.icons.rounded.ArrowCircleRight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.MediaItem as MediaItem3
-import androidx.media3.common.MimeTypes
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.PlayerView
+import androidx.compose.ui.viewinterop.AndroidView
+
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.data.database.ContinueWatchingItem
 import com.example.data.database.FavoriteItem
 import com.example.data.model.Episode
 import com.example.data.model.MediaItem
+import com.example.data.model.Season
 import com.example.ui.theme.DarkBackground
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceVariant
@@ -78,217 +72,160 @@ import com.example.ui.theme.ForgeOrange
 import com.example.ui.theme.SteelGrey
 import com.example.ui.viewmodel.MainViewModel
 
-enum class Screen {
-    SEARCH,
-    DETAIL,
-    PLAYER
-}
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.MediaItem as MediaItem3
+import androidx.media3.ui.PlayerView
 
-enum class Tab {
-    HOME,
-    SEARCH,
-    CONTINUE_WATCHING,
-    FAVORITES,
-    SETTINGS
-}
+/* ==========================================================================================
+   APP NAVIGATOR & SCREEN DEFINITIONS
+   ========================================================================================== */
+
+private enum class Screen { SEARCH, DETAIL, PLAYER }
+private enum class Tab { HOME, SEARCH, CONTINUE_WATCHING, FAVORITES, SETTINGS }
 
 @androidx.media3.common.util.UnstableApi
 @Composable
 fun AppNavigator(viewModel: MainViewModel) {
     var currentScreen by remember { mutableStateOf(Screen.SEARCH) }
-    var selectedTab by remember { mutableStateOf(Tab.HOME) } // Starts on Home (Prime Video style)
+    var currentTab by remember { mutableStateOf(Tab.HOME) }
 
-    val activeStreamUrl by viewModel.activeStreamUrl.collectAsStateWithLifecycle()
-    val selectedItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
-
-    // Handle back button presses cleanly
     BackHandler(enabled = currentScreen != Screen.SEARCH) {
-        when (currentScreen) {
-            Screen.PLAYER -> {
-                viewModel.clearPlayerState()
-                currentScreen = if (selectedItem != null) Screen.DETAIL else Screen.SEARCH
-            }
-            Screen.DETAIL -> {
-                viewModel.selectMediaItem(null)
-                currentScreen = Screen.SEARCH
-            }
-            else -> {}
+        if (currentScreen == Screen.PLAYER) {
+            currentScreen = Screen.DETAIL
+        } else {
+            currentScreen = Screen.SEARCH
         }
     }
 
-    // Reactively switch to PLAYER screen if a stream URL is successfully extracted
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            if (currentScreen == Screen.SEARCH) {
+                NavigationBar(
+                    containerColor = DarkSurface,
+                    contentColor = Color.White
+                ) {
+                    NavigationBarItem(
+                        selected = currentTab == Tab.HOME,
+                        onClick = { currentTab = Tab.HOME },
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Home", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ForgeOrange,
+                            selectedTextColor = ForgeOrange,
+                            unselectedIconColor = SteelGrey,
+                            unselectedTextColor = SteelGrey,
+                            indicatorColor = Color.Transparent
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = currentTab == Tab.SEARCH,
+                        onClick = { currentTab = Tab.SEARCH },
+                        icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        label = { Text("Cerca", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ForgeOrange,
+                            selectedTextColor = ForgeOrange,
+                            unselectedIconColor = SteelGrey,
+                            unselectedTextColor = SteelGrey,
+                            indicatorColor = Color.Transparent
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = currentTab == Tab.CONTINUE_WATCHING,
+                        onClick = { currentTab = Tab.CONTINUE_WATCHING },
+                        icon = { Icon(Icons.Default.PlayArrow, contentDescription = "Continue") },
+                        label = { Text("Continua", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ForgeOrange,
+                            selectedTextColor = ForgeOrange,
+                            unselectedIconColor = SteelGrey,
+                            unselectedTextColor = SteelGrey,
+                            indicatorColor = Color.Transparent
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = currentTab == Tab.FAVORITES,
+                        onClick = { currentTab = Tab.FAVORITES },
+                        icon = { Icon(Icons.Default.Favorite, contentDescription = "Favorites") },
+                        label = { Text("Preferiti", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ForgeOrange,
+                            selectedTextColor = ForgeOrange,
+                            unselectedIconColor = SteelGrey,
+                            unselectedTextColor = SteelGrey,
+                            indicatorColor = Color.Transparent
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = currentTab == Tab.SETTINGS,
+                        onClick = { currentTab = Tab.SETTINGS },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                        label = { Text("Impostazioni", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = ForgeOrange,
+                            selectedTextColor = ForgeOrange,
+                            unselectedIconColor = SteelGrey,
+                            unselectedTextColor = SteelGrey,
+                            indicatorColor = Color.Transparent
+                        )
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            when (currentScreen) {
+                Screen.SEARCH -> {
+                    when (currentTab) {
+                        Tab.HOME -> HomeScreen(viewModel, onNavigateToDetails = { currentScreen = Screen.DETAIL })
+                        Tab.SEARCH -> SearchScreen(viewModel, onNavigateToDetails = { currentScreen = Screen.DETAIL })
+                        Tab.CONTINUE_WATCHING -> ContinueWatchingTab(
+                            viewModel,
+                            onNavigateToDetails = { currentScreen = Screen.DETAIL },
+                            onInstantPlayEpisode = { provider, item, season, ep ->
+                                viewModel.setProvider(provider)
+                                viewModel.selectMediaItem(item, season)
+                                viewModel.playEpisode(item, season, ep)
+                                currentScreen = Screen.PLAYER
+                            },
+                            onInstantPlayMovie = { provider, item ->
+                                viewModel.setProvider(provider)
+                                viewModel.selectMediaItem(item)
+                                viewModel.playMovie(item)
+                                currentScreen = Screen.PLAYER
+                            }
+                        )
+                        Tab.FAVORITES -> FavoritesTab(viewModel, onNavigateToDetails = { currentScreen = Screen.DETAIL })
+                        Tab.SETTINGS -> SettingsScreen(viewModel)
+                    }
+                }
+                Screen.DETAIL -> DetailScreen(
+                    viewModel = viewModel,
+                    onBack = { currentScreen = Screen.SEARCH }
+                )
+                Screen.PLAYER -> PlayerScreen(
+                    viewModel = viewModel,
+                    onBack = { currentScreen = Screen.DETAIL }
+                )
+            }
+        }
+    }
+
+    // Trigger player screen when a stream URL is ready
+    val activeStreamUrl by viewModel.activeStreamUrl.collectAsStateWithLifecycle()
     LaunchedEffect(activeStreamUrl) {
         if (activeStreamUrl != null) {
             currentScreen = Screen.PLAYER
         }
     }
-
-    if (currentScreen == Screen.PLAYER) {
-        PlayerScreen(
-            viewModel = viewModel,
-            onBack = {
-                viewModel.clearPlayerState()
-                currentScreen = if (selectedItem != null) Screen.DETAIL else Screen.SEARCH
-            }
-        )
-    } else {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = DarkBackground,
-            bottomBar = {
-                if (currentScreen == Screen.SEARCH) {
-
-                    NavigationBar(
-                        containerColor = DarkBackground,
-                        contentColor = Color.White,
-                        tonalElevation = 8.dp
-                    ) {
-
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.HOME,
-                            onClick = { selectedTab = Tab.HOME },
-                            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                            label = { Text("Home") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.SEARCH,
-                            onClick = { selectedTab = Tab.SEARCH },
-                            icon = { Icon(Icons.Default.Search, contentDescription = "Ricerca") },
-                            label = { Text("Ricerca") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.CONTINUE_WATCHING,
-                            onClick = { selectedTab = Tab.CONTINUE_WATCHING },
-                            icon = { Icon(Icons.Default.PlayArrow, contentDescription = "Continua") },
-                            label = { Text("Continua") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.FAVORITES,
-                            onClick = { selectedTab = Tab.FAVORITES },
-                            icon = { Icon(Icons.Default.Favorite, contentDescription = "Preferiti") },
-                            label = { Text("Preferiti") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.SETTINGS,
-                            onClick = { selectedTab = Tab.SETTINGS },
-                            icon = { Icon(Icons.Default.Settings, contentDescription = "Impostazioni") },
-                            label = { Text("Impost.") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                    }
-                }
-            }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(DarkBackground)
-            ) {
-                when (currentScreen) {
-                    Screen.SEARCH -> {
-                        when (selectedTab) {
-                            Tab.HOME -> {
-                                HomeScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    }
-                                )
-                            }
-                            Tab.SEARCH -> {
-                                SearchScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    }
-                                )
-                            }
-                            Tab.CONTINUE_WATCHING -> {
-                                ContinueWatchingTab(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    },
-                                    onInstantPlayEpisode = { provider, item, seasonNum, ep ->
-                                        viewModel.setProvider(provider)
-                                        viewModel.selectMediaItem(item, seasonNum)
-                                        viewModel.playEpisode(item, seasonNum, ep)
-                                    },
-                                    onInstantPlayMovie = { provider, item ->
-                                        viewModel.setProvider(provider)
-                                        viewModel.selectMediaItem(item)
-                                        viewModel.playMovie(item)
-                                    }
-                                )
-                            }
-                            Tab.FAVORITES -> {
-                                FavoritesTab(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    }
-                                )
-                            }
-                            Tab.SETTINGS -> {
-                                SettingsScreen(viewModel = viewModel)
-                            }
-                        }
-                    }
-                    Screen.DETAIL -> {
-                        DetailScreen(
-                            viewModel = viewModel,
-                            onBack = {
-                                viewModel.selectMediaItem(null)
-                                currentScreen = Screen.SEARCH
-                            }
-                        )
-                    }
-                    Screen.PLAYER -> {
-                        // Handled above outside Scaffold
-                    }
-                }
-            }
-        }
-    }
 }
 
 /* ==========================================================================================
-   HOMETAB & FAVORITESTAB SCREENS
+   SETTINGS SCREEN
    ========================================================================================== */
 
 @Composable
@@ -296,118 +233,117 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val providerLanguage by viewModel.providerLanguage.collectAsStateWithLifecycle()
     val tmdbApiKey by viewModel.tmdbApiKey.collectAsStateWithLifecycle()
-    println("API Key current: $tmdbApiKey")
 
     val languages = listOf(
-        "it" to "Italiano", "en" to "English", "es" to "Español", "fr" to "Français",
-        "de" to "Deutsch", "pt" to "Português", "ru" to "Русский", "ja" to "日本語", "ko" to "한국어", "zh" to "中文"
+        "it" to "Italiano",
+        "en" to "English"
     )
-    val providerLanguages = listOf("it" to "Italiano", "en" to "Inglese", "ja" to "Giapponese")
-
-    var showAppLangMenu by remember { mutableStateOf(false) }
-    var showProviderLangMenu by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(DarkBackground)
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+            .verticalScroll(rememberScrollState())
     ) {
-        Text(text = "Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        
-        // Impostazioni Lingua
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Lingua", fontSize = 18.sp, color = ForgeOrange)
-            
-            // Lingua App (TMDB e UI)
-            Text(text = "Lingua App (Titoli e Trama)", color = Color.LightGray, fontSize = 14.sp)
-            Box {
-                Button(
-                    onClick = { showAppLangMenu = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C2C)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(text = languages.find { it.first == appLanguage }?.second ?: appLanguage, color = Color.White)
-                }
-                androidx.compose.material3.DropdownMenu(
-                    expanded = showAppLangMenu,
-                    onDismissRequest = { showAppLangMenu = false },
-                    modifier = Modifier.background(Color(0xFF2C2C2C))
-                ) {
-                    languages.forEach { (code, name) ->
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(name, color = Color.White) },
-                            onClick = {
-                                viewModel.setAppLanguage(code)
-                                showAppLangMenu = false
-                            }
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Lingua Provider (StreamingCommunity)
-            Text(text = "Lingua Audio Predefinita", color = Color.LightGray, fontSize = 14.sp)
-            Box {
-                Button(
-                    onClick = { showProviderLangMenu = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C2C)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(text = providerLanguages.find { it.first == providerLanguage }?.second ?: providerLanguage, color = Color.White)
-                }
-                androidx.compose.material3.DropdownMenu(
-                    expanded = showProviderLangMenu,
-                    onDismissRequest = { showProviderLangMenu = false },
-                    modifier = Modifier.background(Color(0xFF2C2C2C))
-                ) {
-                    providerLanguages.forEach { (code, name) ->
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text(name, color = Color.White) },
-                            onClick = {
-                                viewModel.setProviderLanguage(code)
-                                showProviderLangMenu = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-        
-        HorizontalDivider(color = SteelGrey.copy(alpha = 0.5f))
+        Text(
+            text = "Impostazioni",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Aggiornamenti", fontSize = 18.sp, color = ForgeOrange)
-            Text(text = "Aggiorna manualmente i domini dei siti e le impostazioni API dal repository.", color = Color.LightGray, fontSize = 14.sp)
-            val context = LocalContext.current
-            var isUpdating by remember { mutableStateOf(false) }
-            Button(
-                onClick = {
-                    isUpdating = true
-                    viewModel.refreshDomainsAndApi { success ->
-                        isUpdating = false
-                        if (success) {
-                            android.widget.Toast.makeText(context, "Aggiornamento completato con successo", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            android.widget.Toast.makeText(context, "Errore durante l'aggiornamento", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                enabled = !isUpdating,
-                colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange, contentColor = Color.Black)
-            ) {
-                if (isUpdating) {
-                    CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Aggiorna Ora")
-                }
+        // UI Language Selection
+        Text("Lingua Interfaccia", color = ForgeOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            languages.forEach { (code, name) ->
+                val isSelected = appLanguage == code
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { viewModel.setAppLanguage(code) },
+                    label = { Text(name) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ForgeOrange,
+                        selectedLabelColor = Color.Black,
+                        labelColor = Color.White,
+                        containerColor = DarkSurface
+                    )
+                )
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Provider Language Preference
+        Text("Lingua Contenuti (Preferita)", color = ForgeOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text("Determina la lingua dei risultati di ricerca quando possibile.", color = SteelGrey, fontSize = 12.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            languages.forEach { (code, name) ->
+                val isSelected = providerLanguage == code
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { viewModel.setProviderLanguage(code) },
+                    label = { Text(name) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = ForgeOrange,
+                        selectedLabelColor = Color.Black,
+                        labelColor = Color.White,
+                        containerColor = DarkSurface
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // TMDB Configuration
+        Text("TMDB API Key", color = ForgeOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Text("Utilizzata per recuperare locandine e dettagli. Chiave predefinita inclusa.", color = SteelGrey, fontSize = 12.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        OutlinedTextField(
+            value = tmdbApiKey,
+            onValueChange = { /* Key is fixed for now */ },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true,
+            label = { Text("API Key Attiva") },
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = SteelGrey,
+                focusedBorderColor = ForgeOrange,
+                unfocusedTextColor = Color.White,
+                focusedTextColor = Color.White
+            )
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = { viewModel.refreshDomainsAndApi() },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = DarkSurface)
+        ) {
+            Icon(Icons.Default.Refresh, contentDescription = null, tint = ForgeOrange)
+            Spacer(Modifier.width(8.dp))
+            Text("Aggiorna Domini Provider", color = Color.White)
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "Versione 16.0 Multiplatform Beta",
+            color = SteelGrey,
+            fontSize = 12.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
     }
 }
+
+/* ==========================================================================================
+   HOME SCREEN
+   ========================================================================================== */
 
 @Composable
 fun HomeScreen(
@@ -427,7 +363,7 @@ fun HomeScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 80.dp) // Leave space for bottom nav
+        contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         // Hero Section
         item {
@@ -447,13 +383,15 @@ fun HomeScreen(
                             onNavigateToDetails()
                         }
                 ) {
-                    AsyncImage(
-                        model = heroItem.posterUrl,
-                        contentDescription = "Hero Image",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    // Gradient overlay
+                    val posterUrl = heroItem.posterUrl
+                    if (posterUrl != null) {
+                        AsyncImage(
+                            model = posterUrl,
+                            contentDescription = "Hero Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -500,38 +438,19 @@ fun HomeScreen(
                     "Continua a guardare",
                     continueWatchingList,
                     onPlay = { item ->
-                        val mediaObj = MediaItem(
-                            id = item.mediaId,
-                            name = item.name,
-                            type = item.type,
-                            slug = item.slug,
-                            posterUrl = item.posterUrl,
-                            year = item.year
-                        )
+                        val mediaObj = MediaItem(item.mediaId, item.name, item.type, item.slug, item.posterUrl, item.year)
+                        viewModel.setProvider(item.provider)
                         if (mediaObj.isMovie) {
-                            viewModel.setProvider(item.provider)
                             viewModel.selectMediaItem(mediaObj)
                             viewModel.playMovie(mediaObj)
                         } else {
-                            val epObj = Episode(
-                                id = item.lastEpisodeId ?: 0,
-                                number = item.lastEpisodeNumber ?: 1,
-                                name = item.lastEpisodeName ?: "Episodio"
-                            )
-                            viewModel.setProvider(item.provider)
+                            val epObj = Episode(item.lastEpisodeId ?: 0, item.lastEpisodeNumber ?: 1, item.lastEpisodeName ?: "Episodio")
                             viewModel.selectMediaItem(mediaObj, item.lastSeasonNumber ?: 1)
                             viewModel.playEpisode(mediaObj, item.lastSeasonNumber ?: 1, epObj)
                         }
                     },
                     onNavigateToDetails = { item ->
-                        val mediaObj = MediaItem(
-                            id = item.mediaId,
-                            name = item.name,
-                            type = item.type,
-                            slug = item.slug,
-                            posterUrl = item.posterUrl,
-                            year = item.year
-                        )
+                        val mediaObj = MediaItem(item.mediaId, item.name, item.type, item.slug, item.posterUrl, item.year)
                         viewModel.selectMediaItem(mediaObj)
                         onNavigateToDetails()
                     }
@@ -556,7 +475,7 @@ fun ContinueWatchingRow(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = ForgeOrange,
+            color = Color.White,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         LazyRow(
@@ -565,67 +484,48 @@ fun ContinueWatchingRow(
         ) {
             items(items) { item ->
                 Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
                     modifier = Modifier
-                        .width(160.dp)
-                        .height(240.dp)
-                        .clickable { onNavigateToDetails(item) }
+                        .width(260.dp)
+                        .height(160.dp)
+                        .clickable { onNavigateToDetails(item) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface)
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        AsyncImage(
-                            model = item.posterUrl,
-                            contentDescription = item.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
-                                    )
-                                )
-                        )
+                        val posterUrl = item.posterUrl
+                        if (posterUrl != null) {
+                            AsyncImage(
+                                model = posterUrl,
+                                contentDescription = item.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                         
-                        IconButton(
-                            onClick = { onPlay(item) },
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .size(48.dp)
-                                .background(ForgeOrange, CircleShape)
-                        ) {
-                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
+                        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)))))
+
+                        if (item.durationMillis != null && item.durationMillis > 0) {
+                            val progress = (item.lastPositionMillis ?: 0L).toFloat() / item.durationMillis.toFloat()
+                            LinearProgressIndicator(
+                                progress = { progress.coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.BottomCenter),
+                                color = ForgeOrange,
+                                trackColor = Color.White.copy(alpha = 0.2f)
+                            )
                         }
 
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(8.dp)
-                        ) {
-                            Text(
-                                item.name,
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                maxLines = 1
-                            )
+                        Column(modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)) {
+                            Text(item.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
                             if (item.lastEpisodeNumber != null) {
-                                Text(
-                                    "S${item.lastSeasonNumber}:E${item.lastEpisodeNumber}",
-                                    color = ForgeOrange,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
+                                Text("S${item.lastSeasonNumber}:E${item.lastEpisodeNumber}", color = ForgeOrange, fontSize = 11.sp)
                             }
-                            
-                            if (item.lastPositionMillis != null && item.durationMillis != null && item.durationMillis > 0) {
-                                LinearProgressIndicator(
-                                    progress = (item.lastPositionMillis.toFloat() / item.durationMillis.toFloat()),
-                                    modifier = Modifier.fillMaxWidth().height(2.dp).padding(top = 4.dp),
-                                    color = ForgeOrange,
-                                    trackColor = Color.Gray
-                                )
-                            }
+                        }
+
+                        IconButton(
+                            onClick = { onPlay(item) },
+                            modifier = Modifier.align(Alignment.Center).size(48.dp).clip(CircleShape).background(ForgeOrange)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Black)
                         }
                     }
                 }
@@ -642,7 +542,7 @@ fun HomeCarousel(
     onNavigateToDetails: () -> Unit
 ) {
     if (items.isEmpty()) return
-
+    
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
@@ -676,30 +576,29 @@ fun HomeCarousel(
                                 text = item.name,
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(8.dp)
                             )
                         }
-                        AsyncImage(
-                            model = item.posterUrl,
-                            contentDescription = "Poster of ${item.name}",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        val posterUrl = item.posterUrl
+                        if (posterUrl != null) {
+                            AsyncImage(
+                                model = posterUrl,
+                                contentDescription = "Poster of ${item.name}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                         
                         if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
                             val progress = progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
                             LinearProgressIndicator(
                                 progress = { progress.coerceIn(0f, 1f) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(3.dp)
-                                    .align(Alignment.BottomCenter),
+                                modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
                                 color = ForgeOrange,
                                 trackColor = Color.White.copy(alpha = 0.2f)
                             )
                             
-                            // Remaining time text (Feature 2)
                             val remaining = progressEntry.durationMillis - (progressEntry.lastPositionMillis ?: 0L)
                             Box(
                                 modifier = Modifier
@@ -723,6 +622,10 @@ fun HomeCarousel(
     }
 }
 
+/* ==========================================================================================
+   CONTINUE WATCHING TAB
+   ========================================================================================== */
+
 @Composable
 fun ContinueWatchingTab(
     viewModel: MainViewModel,
@@ -730,9 +633,7 @@ fun ContinueWatchingTab(
     onInstantPlayEpisode: (String, MediaItem, Int, Episode) -> Unit,
     onInstantPlayMovie: (String, MediaItem) -> Unit
 ) {
-    println("Navigate function provided: $onNavigateToDetails")
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
-    val isBootstrapping by viewModel.isBootstrapping.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -745,114 +646,54 @@ fun ContinueWatchingTab(
                     .padding(top = 42.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.streamforge_logo),
-                        contentDescription = "StreamForge Logo",
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .border(1.5.dp, ForgeOrange, CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Continua a Guardare",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
+                Text(
+                    text = "Continua a Guardare",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
         }
     ) { innerPadding ->
-        if (isBootstrapping) {
+        if (continueWatchingList.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = ForgeOrange)
-            }
-        } else if (continueWatchingList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = SteelGrey.copy(alpha = 0.4f),
-                            modifier = Modifier.size(54.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Nessun titolo in riproduzione",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Inizia la riproduzione di un film o serie TV dalla scheda Ricerca per ritrovarlo qui!",
-                            color = SteelGrey,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = SteelGrey.copy(alpha = 0.4f),
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Nessun contenuto in sospeso",
+                        color = SteelGrey,
+                        fontSize = 14.sp
+                    )
                 }
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(continueWatchingList, key = { it.id }) { item ->
                     ContinueWatchingCard(
                         item = item,
                         onPlay = {
-                            val mediaObj = MediaItem(
-                                id = item.mediaId,
-                                name = item.name,
-                                type = item.type,
-                                slug = item.slug,
-                                posterUrl = item.posterUrl,
-                                year = item.year
-                            )
+                            val mediaObj = MediaItem(item.mediaId, item.name, item.type, item.slug, item.posterUrl, item.year)
                             if (mediaObj.isMovie) {
                                 onInstantPlayMovie(item.provider, mediaObj)
                             } else {
-                                val epObj = Episode(
-                                    id = item.lastEpisodeId ?: 0,
-                                    number = item.lastEpisodeNumber ?: 1,
-                                    name = item.lastEpisodeName ?: "Episodio"
-                                )
+                                val epObj = Episode(item.lastEpisodeId ?: 0, item.lastEpisodeNumber ?: 1, item.lastEpisodeName ?: "Episodio")
                                 onInstantPlayEpisode(item.provider, mediaObj, item.lastSeasonNumber ?: 1, epObj)
                             }
                         },
@@ -944,26 +785,12 @@ fun FavoritesTab(
                             progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
                         } else null,
                         onClick = {
-                            val mediaObj = MediaItem(
-                                id = item.mediaId,
-                                name = item.name,
-                                type = item.type,
-                                slug = item.slug,
-                                posterUrl = item.posterUrl,
-                                year = item.year
-                            )
+                            val mediaObj = MediaItem(item.mediaId, item.name, item.type, item.slug, item.posterUrl, item.year)
                             viewModel.selectMediaItem(mediaObj)
                             onNavigateToDetails()
                         },
                         onRemove = {
-                            val mediaObj = MediaItem(
-                                id = item.mediaId,
-                                name = item.name,
-                                type = item.type,
-                                slug = item.slug,
-                                posterUrl = item.posterUrl,
-                                year = item.year
-                            )
+                            val mediaObj = MediaItem(item.mediaId, item.name, item.type, item.slug, item.posterUrl, item.year)
                             viewModel.selectMediaItem(mediaObj)
                             viewModel.toggleFavorite()
                             viewModel.selectMediaItem(null)
@@ -1015,7 +842,6 @@ fun FavoriteGridCard(
                     }
                 }
 
-                // Heart overlay
                 IconButton(
                     onClick = onRemove,
                     modifier = Modifier
@@ -1033,7 +859,6 @@ fun FavoriteGridCard(
                     )
                 }
 
-                // Provider Tag
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -1050,7 +875,6 @@ fun FavoriteGridCard(
                     )
                 }
                 
-                // Progress Bar Overlay (Feature 2)
                 if (progress != null) {
                     LinearProgressIndicator(
                         progress = { progress.coerceIn(0f, 1f) },
@@ -1062,7 +886,6 @@ fun FavoriteGridCard(
                         trackColor = Color.White.copy(alpha = 0.2f)
                     )
                     
-                    // Percentage overlay for favorites
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -1085,11 +908,10 @@ fun FavoriteGridCard(
                     text = item.name,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${item.type.uppercase()} • ${item.year ?: "N/D"}",
                     color = SteelGrey,
@@ -1109,7 +931,7 @@ fun SearchScreen(
     viewModel: MainViewModel,
     onNavigateToDetails: () -> Unit
 ) {
-    val provider by viewModel.selectedProvider.collectAsStateWithLifecycle()
+    val providerName by viewModel.selectedProvider.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val results by viewModel.searchResults.collectAsStateWithLifecycle()
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
@@ -1130,7 +952,6 @@ fun SearchScreen(
                     .padding(top = 42.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Header Branding layout with custom StreamForge image logo (Feature 1)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
@@ -1155,7 +976,6 @@ fun SearchScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Selector for Streaming providers
                 var dropdownExpanded by remember { mutableStateOf(false) }
                 val allProviders = listOf(
                     "StreamingCommunity", "AnimeUnity", "DiscoveryPlus", "Discovery", "DMax", "Nove", "RealTime",
@@ -1171,7 +991,7 @@ fun SearchScreen(
                         border = BorderStroke(1.dp, ForgeOrange),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Provider: ${provider.replaceFirstChar { it.uppercase() }}", color = ForgeOrange, fontWeight = FontWeight.Bold)
+                        Text("Provider: ${providerName.replaceFirstChar { it.uppercase() }}", color = ForgeOrange, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.weight(1f))
                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Scegli Provider", tint = ForgeOrange)
                     }
@@ -1185,8 +1005,8 @@ fun SearchScreen(
                                 text = { 
                                     Text(
                                         p, 
-                                        color = if (p.equals(provider, ignoreCase = true)) ForgeOrange else Color.White,
-                                        fontWeight = if (p.equals(provider, ignoreCase = true)) FontWeight.Bold else FontWeight.Normal
+                                        color = if (p.equals(providerName, ignoreCase = true)) ForgeOrange else Color.White,
+                                        fontWeight = if (p.equals(providerName, ignoreCase = true)) FontWeight.Bold else FontWeight.Normal
                                     ) 
                                 },
                                 onClick = {
@@ -1216,7 +1036,6 @@ fun SearchScreen(
                     .padding(innerPadding),
                 contentPadding = PaddingValues(16.dp)
             ) {
-                // Search Bar Input Section
                 item {
                     OutlinedTextField(
                         value = query,
@@ -1249,7 +1068,6 @@ fun SearchScreen(
                     )
                 }
 
-                // Search Button (Action Trigger)
                 item {
                     Button(
                         onClick = {
@@ -1266,12 +1084,11 @@ fun SearchScreen(
                         if (isSearching) {
                             CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else {
-                            Text("Cerca su $provider", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Cerca su $providerName", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
                 }
 
-                // Search Feedback error display
                 if (searchError != null && !isSearching) {
                     item {
                         Card(
@@ -1290,7 +1107,6 @@ fun SearchScreen(
                     }
                 }
 
-                // Search result listing
                 if (!isSearching && results.isNotEmpty()) {
                     items(results) { mediaItem ->
                         val progressEntry = continueWatchingList.find { it.mediaId == mediaItem.id }
@@ -1306,7 +1122,7 @@ fun SearchScreen(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                     }
-                } else if (!isSearching && results.isEmpty() && query.isBlank()) {
+                } else if (!isSearching && results.isEmpty() && query.isNotBlank()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -1316,14 +1132,14 @@ fun SearchScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Placeholder",
+                                    imageVector = Icons.Default.SearchOff,
+                                    contentDescription = null,
                                     tint = SteelGrey.copy(alpha = 0.5f),
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Inserisci un titolo per iniziare la fucina dello streaming",
+                                    text = "Nessun risultato per '$query'",
                                     color = SteelGrey,
                                     fontSize = 14.sp,
                                     textAlign = TextAlign.Center
@@ -1370,7 +1186,6 @@ fun ContinueWatchingCard(
                 }
             }
 
-            // Dark gradient overlay
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1381,7 +1196,6 @@ fun ContinueWatchingCard(
                     )
             )
 
-            // Absolute overlays
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1411,11 +1225,10 @@ fun ContinueWatchingCard(
                         .clickable { onDelete() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Dele", tint = Color.Red, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(14.dp))
                 }
             }
 
-            // Central Play Floating Action (Feature 2 quick-play)
             IconButton(
                 onClick = onPlay,
                 modifier = Modifier
@@ -1427,7 +1240,6 @@ fun ContinueWatchingCard(
                 Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Black)
             }
 
-            // Visual Playback Progress Bar (Feature 2)
             if (item.lastPositionMillis != null && item.durationMillis != null && item.durationMillis > 0) {
                 val progress = item.lastPositionMillis.toFloat() / item.durationMillis.toFloat()
                 LinearProgressIndicator(
@@ -1488,10 +1300,10 @@ fun ContinueWatchingCard(
     }
 }
 
-private fun formatMillis(ms: Long): String {
+fun formatMillis(ms: Long): String {
     val totalSeconds = ms / 1000
+    val minutes = (totalSeconds / 60) % 60
     val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
@@ -1617,7 +1429,7 @@ fun MediaItemSearchRow(
 
             Icon(
                 imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Details Arrow",
+                contentDescription = "Details",
                 tint = ForgeOrange,
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
@@ -1637,7 +1449,7 @@ fun DetailScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit
 ) {
-    val currentContext = androidx.compose.ui.platform.LocalContext.current
+    val currentContext = LocalContext.current
     val providerName by viewModel.selectedProvider.collectAsStateWithLifecycle()
     val selectedItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
     val seasons by viewModel.seasons.collectAsStateWithLifecycle()
@@ -1650,7 +1462,6 @@ fun DetailScreen(
     val isExtracting by viewModel.isExtractingStream.collectAsStateWithLifecycle()
     val streamError by viewModel.streamError.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentMediaFavorite.collectAsStateWithLifecycle()
-    val lastWatched by viewModel.lastWatchedEpisodeForSelected.collectAsStateWithLifecycle()
 
     val item = selectedItem ?: return
 
@@ -1661,7 +1472,7 @@ fun DetailScreen(
                 title = { Text(text = "Dettagli Titolo", color = Color.White, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = ForgeOrange)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro", tint = ForgeOrange)
                     }
                 },
                 actions = {
@@ -1683,7 +1494,6 @@ fun DetailScreen(
                 .padding(innerPadding),
             contentPadding = PaddingValues(16.dp)
         ) {
-            // Header Image and Info
             item {
                 Row(
                     modifier = Modifier
@@ -1763,280 +1573,144 @@ fun DetailScreen(
                                 color = SteelGrey,
                                 fontSize = 13.sp
                             )
-
                         }
                     }
                 }
             }
 
-            // Status message during link processing
-            if (isExtracting) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            CircularProgressIndicator(color = ForgeOrange, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text("Estrazione link di streaming HLS in corso...", color = Color.White, fontSize = 14.sp)
-                        }
-                    }
-                }
-            }
-
-            // Stream extraction error
-            if (streamError != null) {
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0x44F44336)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                    ) {
-                        Text(
-                            text = streamError ?: "",
-                            color = Color.White,
-                            modifier = Modifier.padding(16.dp),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
-            // Play Film Mode
             if (item.isMovie) {
                 item {
                     Button(
                         onClick = { viewModel.playMovie(item) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
-                            .testTag("play_movie_button"),
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
+                        shape = RoundedCornerShape(12.dp),
                         enabled = !isExtracting
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Black)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("▶ RIPRODUCI FILM COMPLETO", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        if (isExtracting) {
+                            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
+                        } else {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("RIPRODUCI ORA", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = { viewModel.copySingleStream(item, null, null, currentContext) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ForgeOrange),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, ForgeOrange),
-                        enabled = !isExtracting
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Copia Link m3u8", tint = ForgeOrange)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("⎘ COPIA LINK M3U8", color = ForgeOrange, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    
+                    if (streamError != null) {
+                        Text(
+                            text = streamError ?: "",
+                            color = Color.Red,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
                     }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             } else {
-                // If there's an active last watched episode/season, show a stylized Resume button at the top!
-                if (lastWatched != null) {
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = ForgeOrange.copy(alpha = 0.15f)),
+                this@LazyColumn.item {
+                    if (isLoading) {
+                        Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = ForgeOrange)
+                        }
+                    } else if (detailsError != null) {
+                        Text(text = detailsError ?: "Errore", color = Color.Red)
+                    } else if (seasons.isNotEmpty()) {
+                        var expanded by remember { mutableStateOf(false) }
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 12.dp)
-                                .border(1.dp, ForgeOrange.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                .padding(bottom = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Continua la visione",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = ForgeOrange
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Stagione ${lastWatched?.lastSeasonNumber} • Episodio ${lastWatched?.lastEpisodeNumber}",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                    if (!lastWatched?.lastEpisodeName.isNullOrBlank()) {
-                                        Text(
-                                            text = lastWatched?.lastEpisodeName ?: "",
-                                            color = SteelGrey,
-                                            fontSize = 12.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                            Box(modifier = Modifier.weight(1f)) {
+                                Button(
+                                    onClick = { expanded = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurface)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(text = "Stagione ${selectedSeason ?: 1}", color = Color.White)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = ForgeOrange)
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.9f)
+                                        .background(DarkSurface)
+                                ) {
+                                    seasons.forEach { season ->
+                                        DropdownMenuItem(
+                                            text = { Text("Stagione ${season.number}", color = Color.White) },
+                                            onClick = {
+                                                expanded = false
+                                                viewModel.selectSeason(season.number)
+                                            }
                                         )
                                     }
                                 }
-                                Button(
-                                    onClick = {
-                                        val epObj = Episode(
-                                            id = lastWatched?.lastEpisodeId ?: 0,
-                                            number = lastWatched?.lastEpisodeNumber ?: 1,
-                                            name = lastWatched?.lastEpisodeName ?: "Episodio"
-                                        )
-                                        viewModel.playEpisode(item, lastWatched?.lastSeasonNumber ?: 1, epObj)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
-                                    enabled = !isExtracting,
-                                    modifier = Modifier.padding(start = 12.dp)
-                                ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("PROSEGUI", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                }
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(
+                                onClick = { viewModel.copySeasonStreams(item, selectedSeason ?: 1, episodes, currentContext) },
+                                enabled = !isExtracting,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DarkSurface)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, tint = ForgeOrange)
+                                }
                         }
                     }
                 }
 
-                // Series Seasons and Episodes
-                item {
-                    Divider(color = SteelGrey.copy(alpha = 0.3f), thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
+                this@LazyColumn.item {
+                    Text(
+                        text = "Lista Episodi (${episodes.size})",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ForgeOrange,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
                 }
 
-                if (isLoading) {
-                    item {
+                if (episodes.isEmpty()) {
+                    this@LazyColumn.item {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(150.dp),
+                                .height(100.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = ForgeOrange)
+                            Text("Nessun episodio caricato.", color = SteelGrey)
                         }
-                    }
-                } else if (detailsError != null) {
-                    item {
-                        Text(
-                            text = detailsError ?: "",
-                            color = Color.Red,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
                 } else {
-                    // Seasons dropdown
-                    if (seasons.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "Seleziona Stagione",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            var expanded by remember { mutableStateOf(false) }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    Button(
-                                        onClick = { expanded = true },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurface)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(text = "Stagione ${selectedSeason ?: 1}", color = Color.White)
-                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = ForgeOrange)
-                                        }
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false },
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.9f)
-                                            .background(DarkSurface)
-                                    ) {
-                                        seasons.forEach { season ->
-                                            DropdownMenuItem(
-                                                text = { Text("Stagione ${season.number}", color = Color.White) },
-                                                onClick = {
-                                                    expanded = false
-                                                    viewModel.selectSeason(season.number)
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                IconButton(
-                                    onClick = { viewModel.copySeasonStreams(item, selectedSeason ?: 1, episodes, currentContext) },
-                                    enabled = !isExtracting,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(DarkSurface)
-                                ) {
-                                    Icon(Icons.Default.Share, contentDescription = "Copia Stagione", tint = ForgeOrange)
-                                }
-                            }
-                        }
-                    }
-
-                    // Episode count / header
-                    item {
-                        Text(
-                            text = "Lista Episodi (${episodes.size})",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ForgeOrange,
-                            modifier = Modifier.padding(bottom = 12.dp)
+                    this@LazyColumn.items(episodes) { episode ->
+                        val progressEntry = continueWatchingList.find { it.mediaId == item.id && it.lastEpisodeId == episode.id }
+                        EpisodeRow(
+                            episode = episode,
+                            progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
+                                progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                            } else null,
+                            onClick = {
+                                viewModel.playEpisode(item, selectedSeason ?: 1, episode)
+                            },
+                            onCopyClick = {
+                                viewModel.copySingleStream(item, selectedSeason ?: 1, episode, currentContext)
+                            },
+                            enabled = !isExtracting
                         )
-                    }
-
-                    // Load episode rows onto lazy column
-                    if (episodes.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(100.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Nessun episodio caricato.", color = SteelGrey)
-                            }
-                        }
-                    } else {
-                        items(episodes) { episode ->
-                            val progressEntry = continueWatchingList.find { it.mediaId == item.id && it.lastEpisodeId == episode.id }
-                            EpisodeRow(
-                                episode = episode,
-                                progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
-                                    progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
-                                } else null,
-                                onClick = {
-                                    viewModel.playEpisode(item, selectedSeason ?: 1, episode)
-                                },
-                                onCopyClick = {
-                                    viewModel.copySingleStream(item, selectedSeason ?: 1, episode, currentContext)
-                                },
-                                enabled = !isExtracting
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
@@ -2151,7 +1825,6 @@ fun PlayerScreen(
     var showSubtitlesMenu by remember { mutableStateOf(false) }
     var showAudioLanguageMenu by remember { mutableStateOf(false) }
     var showExtraControls by remember { mutableStateOf(false) }
-    // Stato per la funzione zoom/riempi (limita bordi neri)
     var isZoomed by remember { mutableStateOf(false) }
     
     val appLang by viewModel.appLanguage.collectAsStateWithLifecycle()
@@ -2159,8 +1832,6 @@ fun PlayerScreen(
     val activeItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isCurrentMediaFavorite.collectAsStateWithLifecycle()
     val audioLang = activeItem?.providerLanguage ?: "it"
-    // Il cambio lingua audio (it/en) è disponibile solo dove il provider espone versioni
-    // separate del contenuto per lingua (attualmente StreamingCommunity).
     val supportsAudioLanguageSwitch = provider == "StreamingCommunity"
 
     val subtitleOptions = listOf("off" to "Disattivati") + listOf(
@@ -2169,7 +1840,6 @@ fun PlayerScreen(
     )
     val audioLanguageOptions = listOf("it" to "Italiano", "en" to "English")
 
-    // Set and release landscape orientation, hide/restore system bars, and keep screen on
     DisposableEffect(Unit) {
         val activity = context as? Activity
         val originalOrientation = activity?.requestedOrientation
@@ -2192,42 +1862,17 @@ fun PlayerScreen(
         }
     }
 
-    // Inizializza ExoPlayer e definisce gli header HTTP richiesti dai vari provider di streaming
-    // I referrer sono necessari, altrimenti i CDN rifiutano la connessione (es. vixcloud per StreamingCommunity)
     val exoPlayer = remember(provider) {
-        // Imposta il referrer corretto in base al provider attualmente in uso
-        val customReferer = if (provider.lowercase().contains("community")) {
-            "https://vixcloud.co/"
-        } else {
-            "https://www.animeunity.so/"
-        }
-
-        // Fabbrica di sorgenti HTTP che inietta User-Agent standard e Referer nel player
+        val customReferer = if (provider.lowercase().contains("community")) "https://vixcloud.co/" else "https://www.animeunity.so/"
         val httpDataSourceFactory = DefaultHttpDataSource.Factory().apply {
-            setDefaultRequestProperties(
-                mapOf(
-                    "User-Agent" to com.example.data.network.HttpClient.USER_AGENT,
-                    "Referer" to customReferer
-                )
-            )
+            setDefaultRequestProperties(mapOf("User-Agent" to com.example.data.network.HttpClient.USER_AGENT, "Referer" to customReferer))
         }
-
-        // Selettore traccia di default: permette ad ExoPlayer di popolare automaticamente il menu
-        // con la scelta di lingua audio, sottotitoli e risoluzione video se presenti nel flusso.
         val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context)
-        trackSelector.parameters = trackSelector.buildUponParameters()
-            .setPreferredAudioLanguage(appLang)
-            .setPreferredTextLanguage(subLang)
-            .build()
+        trackSelector.parameters = trackSelector.buildUponParameters().setPreferredAudioLanguage(appLang).setPreferredTextLanguage(subLang).build()
 
-        // Costruisce l'istanza finale di ExoPlayer
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
-            .setTrackSelector(trackSelector)
-            .build()
+        ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory)).setTrackSelector(trackSelector).build()
     }
 
-    // Applica le modifiche ai sottotitoli istantaneamente quando cambia la lingua
     LaunchedEffect(subLang) {
         val params = exoPlayer.trackSelectionParameters.buildUpon()
         if (subLang == "off") {
@@ -2239,25 +1884,17 @@ fun PlayerScreen(
         exoPlayer.trackSelectionParameters = params.build()
     }
 
-    // Handle stream URL changes dynamically on the same ExoPlayer instance
     LaunchedEffect(currentStreamUrl) {
         if (currentStreamUrl.isNotEmpty()) {
-            val mediaItemUri = Uri.parse(currentStreamUrl)
-            val isHls = currentStreamUrl.contains(".m3u8") || currentStreamUrl.contains("vixcloud")
-            val mediaItem = if (isHls) {
-                MediaItem3.Builder()
-                    .setUri(mediaItemUri)
-                    .setMimeType(MimeTypes.APPLICATION_M3U8)
-                    .build()
+            val uri = Uri.parse(currentStreamUrl)
+            val hls = currentStreamUrl.contains(".m3u8") || currentStreamUrl.contains("vixcloud")
+            val mediaItem = if (hls) {
+                MediaItem3.Builder().setUri(uri).setMimeType(MimeTypes.APPLICATION_M3U8).build()
             } else {
-                MediaItem3.fromUri(mediaItemUri)
+                MediaItem3.fromUri(uri)
             }
             exoPlayer.setMediaItem(mediaItem)
-            if (resumePosition > 0) {
-                exoPlayer.seekTo(resumePosition)
-            } else {
-                exoPlayer.seekTo(0L)
-            }
+            if (resumePosition > 0) exoPlayer.seekTo(resumePosition) else exoPlayer.seekTo(0L)
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
         } else {
@@ -2265,7 +1902,6 @@ fun PlayerScreen(
         }
     }
 
-    // Progress updates periodically (every 5 seconds)
     LaunchedEffect(exoPlayer) {
         while (true) {
             kotlinx.coroutines.delay(5000)
@@ -2273,13 +1909,9 @@ fun PlayerScreen(
                 if (exoPlayer.isPlaying) {
                     val currentPos = exoPlayer.currentPosition
                     val duration = exoPlayer.duration
-                    if (currentPos > 0 && duration > 0) {
-                        viewModel.updatePlaybackPosition(currentPos, duration)
-                    }
+                    if (currentPos > 0 && duration > 0) viewModel.updatePlaybackPosition(currentPos, duration)
                 }
-            } catch (e: Exception) {
-                // Ignore
-            }
+            } catch (e: Exception) {}
         }
     }
 
@@ -2288,39 +1920,25 @@ fun PlayerScreen(
             try {
                 val currentPos = exoPlayer.currentPosition
                 val duration = exoPlayer.duration
-                if (currentPos > 0 && duration > 0) {
-                    viewModel.updatePlaybackPosition(currentPos, duration)
-                }
-            } catch (e: Exception) {
-                // Ignore
-            }
+                if (currentPos > 0 && duration > 0) viewModel.updatePlaybackPosition(currentPos, duration)
+            } catch (e: Exception) {}
             exoPlayer.stop()
             exoPlayer.release()
         }
     }
 
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, exoPlayer) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE || event == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
-                // Ferma (mette in pausa) la riproduzione video se lo schermo si blocca o si cambia app.
-                // Al ritorno nell'app, il video rimarrà in pausa e sarà possibile farlo ripartire manualmente premendo play.
                 exoPlayer.pause()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Completely blank backdrop for cinema vibes, overlaying ExoPlayer
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .testTag("player_screen_root")
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black).testTag("player_screen_root")) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -2329,262 +1947,131 @@ fun PlayerScreen(
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
                         isControllerVisible = (visibility == android.view.View.VISIBLE)
                     })
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
+                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 }
             },
             update = { playerView ->
-                if (playerView.player != exoPlayer) {
-                    playerView.player = exoPlayer
-                }
-                // Applica lo zoom (taglia i bordi neri) oppure adatta normalmente
+                if (playerView.player != exoPlayer) playerView.player = exoPlayer
                 playerView.resizeMode = if (isZoomed) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Custom hovering Back Arrow button overlaying top left (hides when controls hide)
-        AnimatedVisibility(
-            visible = isControllerVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.TopStart)
-        ) {
+        AnimatedVisibility(visible = isControllerVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopStart)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = {
                         try {
                             val currentPos = exoPlayer.currentPosition
                             val duration = exoPlayer.duration
-                            if (currentPos > 0 && duration > 0) {
-                                viewModel.updatePlaybackPosition(currentPos, duration)
-                            }
+                            if (currentPos > 0 && duration > 0) viewModel.updatePlaybackPosition(currentPos, duration)
                         } catch (e: Exception) {}
                         onBack()
                     },
-                    modifier = Modifier
-                        .padding(top = 16.dp, start = 16.dp)
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.5f))
+                    modifier = Modifier.padding(top = 16.dp, start = 16.dp).size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Chiudi Media Player",
-                        tint = Color.White
-                    )
+                    Icon(imageVector = Icons.Default.Close, contentDescription = "Chiudi", tint = Color.White)
                 }
                 
                 activeItem?.let { item ->
                     Column(modifier = Modifier.padding(top = 16.dp, start = 12.dp)) {
-                        Text(
-                            text = item.name,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
-                        )
+                        Text(text = item.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp))
                         currentEpisode?.let { ep ->
-                            Text(
-                                text = "S${currentSeason ?: 1}:E${ep.number} - ${ep.name}",
-                                color = ForgeOrange,
-                                fontSize = 12.sp,
-                                modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
-                            )
+                            Text(text = "S${currentSeason ?: 1}:E${ep.number} - ${ep.name}", color = ForgeOrange, fontSize = 12.sp, modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp))
                         }
                     }
                 }
             }
         }
 
-        // Custom Next Episode and Cast buttons overlaying top right (hides when controls hide)
-        AnimatedVisibility(
-            visible = isControllerVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.TopEnd)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 16.dp, end = 16.dp)
-            ) {
-                // Pulsante "Menu" principale che attiva gli altri
+        AnimatedVisibility(visible = isControllerVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopEnd)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp, end = 16.dp)) {
                 IconButton(
                     onClick = { showExtraControls = !showExtraControls },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(if (showExtraControls) ForgeOrange else Color.Black.copy(alpha = 0.5f))
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(if (showExtraControls) ForgeOrange else Color.Black.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        imageVector = if (showExtraControls) Icons.Rounded.ArrowCircleRight else Icons.Rounded.ArrowCircleLeft,
-                        contentDescription = "Menu Opzioni",
-                        tint = if (showExtraControls) Color.Black else Color.White
-                    )
+                    Icon(imageVector = if (showExtraControls) Icons.Default.Close else Icons.Default.Settings, contentDescription = "Menu", tint = if (showExtraControls) Color.Black else Color.White)
                 }
 
-                // Gruppo di pulsanti animati
-                AnimatedVisibility(
-                    visible = showExtraControls,
-                    enter = fadeIn() + expandHorizontally(),
-                    exit = fadeOut() + shrinkHorizontally()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Pulsante Preferiti
-                        IconButton(
-                            onClick = { viewModel.toggleFavorite() },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.5f))
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                contentDescription = "Preferiti",
-                                tint = if (isFavorite) Color.Red else Color.White
-                            )
+                AnimatedVisibility(visible = showExtraControls, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconButton(onClick = { viewModel.toggleFavorite() }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) {
+                            Icon(imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Preferiti", tint = if (isFavorite) Color.Red else Color.White)
                         }
 
-                        // Pulsante Zoom
-                        IconButton(
-                            onClick = { isZoomed = !isZoomed },
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.5f))
-                        ) {
-                            Icon(
-                                imageVector = if (isZoomed) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                contentDescription = "Zoom",
-                                tint = Color.White
-                            )
+                        IconButton(onClick = { isZoomed = !isZoomed }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) {
+                            Icon(imageVector = if (isZoomed) Icons.Default.FullscreenExit else Icons.Default.Fullscreen, contentDescription = "Zoom", tint = Color.White)
                         }
 
-                        // Lingua Audio
                         if (supportsAudioLanguageSwitch) {
                             Box {
-                                IconButton(
-                                    onClick = { showAudioLanguageMenu = true },
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Black.copy(alpha = 0.5f))
-                                ) {
-                                    Icon(Icons.Default.Language, null, tint = Color.White)
+                                IconButton(onClick = { showAudioLanguageMenu = true }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) {
+                                    Icon(imageVector = Icons.Default.Language, contentDescription = "Lingua Audio", tint = Color.White)
                                 }
-                                // DropdownMenu audio rimane lo stesso...
-                                androidx.compose.material3.DropdownMenu(
-                                    expanded = showAudioLanguageMenu,
-                                    onDismissRequest = { showAudioLanguageMenu = false },
-                                    modifier = Modifier.background(Color(0xFF2C2C2C))
-                                ) {
+
+                                androidx.compose.material3.DropdownMenu(expanded = showAudioLanguageMenu, onDismissRequest = { showAudioLanguageMenu = false }, modifier = Modifier.background(Color(0xFF2C2C2C))) {
                                     audioLanguageOptions.forEach { (code, name) ->
                                         androidx.compose.material3.DropdownMenuItem(
-                                            text = {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(name, color = Color.White)
-                                                    if (audioLang == code) {
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Icon(Icons.Default.Check, contentDescription = "Selezionato", tint = ForgeOrange, modifier = Modifier.size(16.dp))
-                                                    }
-                                                }
-                                            },
-                                            onClick = {
-                                                showAudioLanguageMenu = false
-                                                if (audioLang != code) {
-                                                    viewModel.switchPlaybackLanguage(code, exoPlayer.currentPosition)
-                                                }
-                                            }
+                                            text = { Row(verticalAlignment = Alignment.CenterVertically) { Text(name, color = Color.White); if (audioLang == code) { Spacer(modifier = Modifier.width(8.dp)); Icon(Icons.Default.Check, contentDescription = null, tint = ForgeOrange, modifier = Modifier.size(16.dp)) } } },
+                                            onClick = { showAudioLanguageMenu = false; if (audioLang != code) viewModel.switchPlaybackLanguage(code, exoPlayer.currentPosition) }
                                         )
                                     }
                                 }
                             }
                         }
 
-                        // Sottotitoli
                         Box {
-                            IconButton(
-                                onClick = { showSubtitlesMenu = true },
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.5f))
-                            ) {
-                                Icon(Icons.Default.Subtitles, null, tint = Color.White)
+                            IconButton(onClick = { showSubtitlesMenu = true }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) {
+                                Icon(imageVector = Icons.Default.Subtitles, contentDescription = "Sottotitoli", tint = Color.White)
                             }
-                            // DropdownMenu sottotitoli rimane lo stesso...
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = showSubtitlesMenu,
-                                onDismissRequest = { showSubtitlesMenu = false },
-                                modifier = Modifier.background(Color(0xFF2C2C2C))
-                            ) {
+                            
+                            androidx.compose.material3.DropdownMenu(expanded = showSubtitlesMenu, onDismissRequest = { showSubtitlesMenu = false }, modifier = Modifier.background(Color(0xFF2C2C2C))) {
                                 subtitleOptions.forEach { (code, name) ->
                                     androidx.compose.material3.DropdownMenuItem(
-                                        text = { Text(name, color = Color.White) },
-                                        onClick = {
-                                            viewModel.setSubtitleLanguage(code)
-                                            showSubtitlesMenu = false
-                                        }
+                                        text = { Row(verticalAlignment = Alignment.CenterVertically) { Text(name, color = Color.White); if (subLang == code) { Spacer(modifier = Modifier.width(8.dp)); Icon(Icons.Default.Check, contentDescription = null, tint = ForgeOrange, modifier = Modifier.size(16.dp)) } } },
+                                        onClick = { viewModel.setSubtitleLanguage(code); showSubtitlesMenu = false }
                                     )
                                 }
                             }
                         }
 
-                        // Cast/Mirrorcast
                         Box {
-                            IconButton(
-                                onClick = { showMirrorOptions = true },
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.5f))
-                            ) {
-                                Icon(Icons.Default.Cast, null, tint = Color.White)
+                            IconButton(onClick = { showMirrorOptions = true }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f))) {
+                                Icon(imageVector = Icons.Default.Cast, contentDescription = "Cast", tint = Color.White)
                             }
-                            // DropdownMenu mirror rimane lo stesso...
-                            androidx.compose.material3.DropdownMenu(
-                                expanded = showMirrorOptions,
-                                onDismissRequest = { showMirrorOptions = false },
-                                modifier = Modifier.background(Color(0xFF2C2C2C))
-                            ) {
+
+                            androidx.compose.material3.DropdownMenu(expanded = showMirrorOptions, onDismissRequest = { showMirrorOptions = false }, modifier = Modifier.background(Color(0xFF2C2C2C))) {
                                 androidx.compose.material3.DropdownMenuItem(
                                     text = { Text("Mirroring Schermo", color = Color.White) },
-                                    onClick = {
-                                        showMirrorOptions = false
-                                        context.startActivity(android.content.Intent("android.settings.CAST_SETTINGS"))
-                                    }
+                                    onClick = { showMirrorOptions = false; try { context.startActivity(android.content.Intent("android.settings.CAST_SETTINGS")) } catch (e: Exception) {} }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
                                     text = { Text("Condividi Link Web", color = Color.White) },
                                     onClick = {
                                         showMirrorOptions = false
-                                        // logica condivisione...
+                                        try {
+                                            val encodedUrl = java.net.URLEncoder.encode(currentStreamUrl, "UTF-8")
+                                            val webPlayerUrl = "https://www.m3u8player.online/m3u8?url=$encodedUrl"
+                                            val sendIntent = android.content.Intent().apply { action = android.content.Intent.ACTION_SEND; putExtra(android.content.Intent.EXTRA_TEXT, webPlayerUrl); type = "text/plain" }
+                                            context.startActivity(android.content.Intent.createChooser(sendIntent, "Trasmetti Player M3U8"))
+                                        } catch (e: Exception) {}
                                     }
                                 )
                             }
                         }
 
-
-                    }
-                }
-
-                // Prossimo Episodio
-                if (hasNextEpisode) {
-                    Button(
-                        onClick = { viewModel.playNextEpisode() },
-                        colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        modifier = Modifier.height(44.dp).width(130.dp)
-                    ) {
-                        Spacer(Modifier.width(4.dp))
-                        Text("NEXT", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Icon(Icons.Default.ArrowForward, null, tint = Color.Black)
+                        if (hasNextEpisode) {
+                            Button(
+                                onClick = { viewModel.playNextEpisode() },
+                                colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
+                                contentPadding = PaddingValues(horizontal = 12.dp),
+                                modifier = Modifier.height(44.dp).width(130.dp)
+                            ) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("NEXT", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.Black)
+                            }
+                        }
                     }
                 }
             }

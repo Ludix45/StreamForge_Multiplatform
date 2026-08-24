@@ -2,8 +2,7 @@ name: Update README Release Links
 on:
   release:
     types: [published]
-  workflow_dispatch: # Permette di avviare l'aggiornamento manualmente
-
+  workflow_dispatch:
 
 jobs:
   update-readme:
@@ -16,16 +15,24 @@ jobs:
       - name: Get Latest Assets
         id: assets
         run: |
-          # Recupera i link degli asset dall'ultima release tramite le API di GitHub
-          MSI_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[] | select(.name | endswith(".msi")) | .browser_download_url')
-          APK_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[] | select(.name | endswith(".apk")) | .browser_download_url')
+          # Recupera i link degli asset dalla release più recente (inclusi i pre-release se necessario)
+          # Usiamo l'endpoint /releases invece di /releases/latest per maggiore flessibilità
+          RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases)
+          
+          # Prendiamo la prima release dell'elenco (la più recente)
+          MSI_URL=$(echo "$RELEASE_JSON" | jq -r '.[0].assets[] | select(.name | endswith(".msi")) | .browser_download_url' | head -n 1)
+          APK_URL=$(echo "$RELEASE_JSON" | jq -r '.[0].assets[] | select(.name | endswith(".apk")) | .browser_download_url' | head -n 1)
+          
+          # Controllo di sicurezza: se non trova nulla, non procedere con l'errore nel sed
+          if [ "$MSI_URL" == "null" ] || [ -z "$MSI_URL" ]; then MSI_URL="#"; fi
+          if [ "$APK_URL" == "null" ] || [ -z "$APK_URL" ]; then APK_URL="#"; fi
+          
           echo "MSI_URL=$MSI_URL" >> $GITHUB_OUTPUT
           echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
 
       - name: Update README.md
         run: |
-          # Sostituisce solo il link finale (quello dopo la chiusura della parentesi quadra del badge)
-          # Il regex \]([^)]*)$ serve a colpire solo l'ultima parentesi tonda della riga
+          # Sostituisce i link nel README
           sed -i '/START_RELEASE_MSI/,/END_RELEASE_MSI/ s|\]([^)]*)$|](${{ steps.assets.outputs.MSI_URL }})|' README.md
           sed -i '/START_RELEASE_APK/,/END_RELEASE_APK/ s|\]([^)]*)$|](${{ steps.assets.outputs.APK_URL }})|' README.md
 
@@ -33,9 +40,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # Verifica se ci sono cambiamenti prima di fare commit
           if git diff --quiet README.md; then
-            echo "Nessuna modifica al README."
+            echo "Nessuna modifica necessaria."
           else
             git add README.md
             git commit -m "docs: update latest release links in README"

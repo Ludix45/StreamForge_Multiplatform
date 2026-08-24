@@ -1,0 +1,41 @@
+name: Update README Release Links
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Latest Assets
+        id: assets
+        run: |
+          # Recupera i link degli asset dall'ultima release tramite le API di GitHub
+          MSI_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[] | select(.name | endswith(".msi")) | .browser_download_url')
+          APK_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[] | select(.name | endswith(".apk")) | .browser_download_url')
+          echo "MSI_URL=$MSI_URL" >> $GITHUB_OUTPUT
+          echo "APK_URL=$APK_URL" >> $GITHUB_OUTPUT
+
+      - name: Update README.md
+        run: |
+          # Sostituisce solo il link finale (quello dopo la chiusura della parentesi quadra del badge)
+          # Il regex \]([^)]*)$ serve a colpire solo l'ultima parentesi tonda della riga
+          sed -i '/START_RELEASE_MSI/,/END_RELEASE_MSI/ s|\]([^)]*)$|](${{ steps.assets.outputs.MSI_URL }})|' README.md
+          sed -i '/START_RELEASE_APK/,/END_RELEASE_APK/ s|\]([^)]*)$|](${{ steps.assets.outputs.APK_URL }})|' README.md
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # Verifica se ci sono cambiamenti prima di fare commit
+          if git diff --quiet README.md; then
+            echo "Nessuna modifica al README."
+          else
+            git add README.md
+            git commit -m "docs: update latest release links in README"
+            git push
+          fi

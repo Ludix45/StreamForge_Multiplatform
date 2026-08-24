@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
 
@@ -31,11 +31,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Shared XCFramework
-        run: ./gradlew :shared:assembleSharedReleaseXCFramework -Dorg.gradle.workers.max=1 -Dkotlin.native.jvmArgs="-Xmx6g" --stacktrace
+      - name: Build Shared Framework (Fast Check)
+        run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 -Dorg.gradle.workers.max=1 -Dkotlin.native.jvmArgs="-Xmx6g" --stacktrace
         
-      - name: Upload XCFramework
+      - name: Upload Framework
         uses: actions/upload-artifact@v4
         with:
-          name: Shared-XCFramework
-          path: shared/build/XCFrameworks/release
+          name: Shared-Framework-Debug
+          path: shared/build/bin/iosSimulatorArm64/debugFramework

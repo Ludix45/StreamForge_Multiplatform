@@ -1,7 +1,8 @@
 package com.example.data.model
 
-import java.io.Serializable
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class MediaItem(
     val id: Long,
     val name: String,
@@ -10,24 +11,27 @@ data class MediaItem(
     val posterUrl: String?,
     val year: String?,
     val providerLanguage: String = "it"  // "it" or "en" for StreamingCommunity
-) : Serializable {
+) {
     val isMovie: Boolean get() = type.lowercase() in listOf("film", "movie", "ova")
 }
 
+@Serializable
 data class Episode(
     val id: Long,
     val number: Int,
     val name: String,
     val playUrl: String? = null,
     val token: String? = null
-) : Serializable
+)
 
+@Serializable
 data class Season(
     val number: Int,
     val name: String,
     val episodes: List<Episode>
-) : Serializable
+)
 
+@Serializable
 data class VideoParams(
     val token: String,
     val expires: String,

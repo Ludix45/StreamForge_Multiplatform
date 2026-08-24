@@ -1,23 +1,31 @@
 plugins {
-    // The shared module intentionally has no UI or provider-specific implementation.
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
-    
     alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
-    // Android retains its existing UI and can gradually adopt these common contracts.
     android {
         namespace = "com.aistudio.streamforge.shared"
         compileSdk = 36
         minSdk = 24
     }
-    // The JVM target is consumed by Compose Desktop on Windows, Linux, and macOS.
+    
     jvm("desktop")
-    // Keep common JVM bytecode compatible with the Compose Desktop JDK 21 runtime.
+    
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "Shared"
+            isStatic = true
+        }
+    }
+
     jvmToolchain(21)
 
     sourceSets {
@@ -34,13 +42,27 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ksoup)
             implementation(libs.kamel.image)
+        }
+        
+        androidMain.dependencies {
+            implementation("io.ktor:ktor-client-okhttp:${libs.versions.ktor.get()}")
+            implementation("androidx.media3:media3-exoplayer:${libs.versions.media3.get()}")
+            implementation("androidx.media3:media3-ui:${libs.versions.media3.get()}")
+            implementation("androidx.media3:media3-exoplayer-hls:${libs.versions.media3.get()}")
+            implementation("androidx.media3:media3-common:${libs.versions.media3.get()}")
         }
         
         val desktopMain by getting {
             dependencies {
                 implementation(compose.uiTooling)
+                implementation("io.ktor:ktor-client-okhttp:${libs.versions.ktor.get()}")
             }
+        }
+        
+        iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin:${libs.versions.ktor.get()}")
         }
     }
 }

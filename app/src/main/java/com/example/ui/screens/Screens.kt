@@ -296,7 +296,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val providerLanguage by viewModel.providerLanguage.collectAsStateWithLifecycle()
     val tmdbApiKey by viewModel.tmdbApiKey.collectAsStateWithLifecycle()
-    var editKey by remember { mutableStateOf(tmdbApiKey) }
+    println("API Key current: $tmdbApiKey")
 
     val languages = listOf(
         "it" to "Italiano", "en" to "English", "es" to "Español", "fr" to "Français",
@@ -730,6 +730,7 @@ fun ContinueWatchingTab(
     onInstantPlayEpisode: (String, MediaItem, Int, Episode) -> Unit,
     onInstantPlayMovie: (String, MediaItem) -> Unit
 ) {
+    println("Navigate function provided: $onNavigateToDetails")
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val isBootstrapping by viewModel.isBootstrapping.collectAsStateWithLifecycle()
 
@@ -995,9 +996,10 @@ fun FavoriteGridCard(
                     .fillMaxWidth()
                     .height(180.dp)
             ) {
-                if (item.posterUrl != null) {
+                val posterUrl = item.posterUrl
+                if (posterUrl != null) {
                     AsyncImage(
-                        model = item.posterUrl,
+                        model = posterUrl,
                         contentDescription = item.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -1349,9 +1351,10 @@ fun ContinueWatchingCard(
         colors = CardDefaults.cardColors(containerColor = DarkSurface)
     ) {
         Box(modifier = Modifier.height(120.dp).fillMaxWidth()) {
-            if (item.posterUrl != null) {
+            val posterUrl = item.posterUrl
+            if (posterUrl != null) {
                 AsyncImage(
-                    model = item.posterUrl,
+                    model = posterUrl,
                     contentDescription = item.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -1512,9 +1515,10 @@ fun MediaItemSearchRow(
                 .fillMaxWidth()
         ) {
             Box(modifier = Modifier.width(80.dp).height(115.dp).clip(RoundedCornerShape(8.dp))) {
-                if (item.posterUrl != null) {
+                val posterUrl = item.posterUrl
+                if (posterUrl != null) {
                     AsyncImage(
-                        model = item.posterUrl,
+                        model = posterUrl,
                         contentDescription = item.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -1591,10 +1595,11 @@ fun MediaItemSearchRow(
                         )
                     }
 
-                    if (!item.year.isNullOrBlank()) {
+                    val itemYear = item.year
+                    if (!itemYear.isNullOrBlank()) {
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = item.year,
+                            text = itemYear,
                             color = SteelGrey,
                             fontSize = 12.sp
                         )
@@ -1685,9 +1690,10 @@ fun DetailScreen(
                         .fillMaxWidth()
                         .padding(bottom = 24.dp)
                 ) {
-                    if (item.posterUrl != null) {
+                    val posterUrl = item.posterUrl
+                    if (posterUrl != null) {
                         AsyncImage(
-                            model = item.posterUrl,
+                            model = posterUrl,
                             contentDescription = item.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -1743,9 +1749,10 @@ fun DetailScreen(
                         }
 
                         Column {
-                            if (!item.year.isNullOrBlank()) {
+                            val itemYear = item.year
+                            if (!itemYear.isNullOrBlank()) {
                                 Text(
-                                    text = "Anno di rilascio: ${item.year}",
+                                    text = "Anno di rilascio: $itemYear",
                                     color = SteelGrey,
                                     fontSize = 13.sp
                                 )

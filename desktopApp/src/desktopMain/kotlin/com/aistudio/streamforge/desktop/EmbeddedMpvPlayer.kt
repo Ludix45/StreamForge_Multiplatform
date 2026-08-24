@@ -220,13 +220,16 @@ private class EmbeddedMpvHost(
                 }
             }
         }
+        /*
         bottomRow.add(subsCombo)
 
         bottomRow.add(Box.createHorizontalGlue())
         bottomRow.add(playerButton("✕") { onBack() })
 
         panel.add(bottomRow, BorderLayout.CENTER)
+        */
         return panel
+
     }
 
     private fun playerButton(icon: String, onClick: () -> Unit) = JButton(icon).apply {
@@ -240,7 +243,7 @@ private class EmbeddedMpvHost(
 
     private fun updateUI() {
         EventQueue.invokeLater {
-            playPauseBtn.text = if (paused) "▶" else "Ⅱ"
+            playPauseBtn.text = if (paused) "▶" else "❚❚"
             muteBtn.text = if (muted) "🔇" else "🔊"
             timeLabel.text = "${formatMpv(positionMs)} / ${formatMpv(durationMs)}"
             if (durationMs > 0 && !userScrubbing) {

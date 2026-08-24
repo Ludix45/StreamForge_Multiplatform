@@ -77,6 +77,9 @@ import javax.swing.event.HyperlinkEvent
 import androidx.compose.ui.awt.SwingPanel
 
 
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
+
 /** Pages available in the desktop companion. They mirror the Android navigation model. */
 private enum class DesktopPage { HOME, SEARCH, CONTINUE, FAVORITES, SETTINGS, DETAILS, PLAYER }
 
@@ -94,10 +97,10 @@ private enum class Provider(val label: String) {
 
 /** Owns navigation and provider calls while preserving Android scraper logic verbatim. */
 @Composable
-fun StreamForgeDesktopApp() {
+fun StreamForgeDesktopApp(windowState: WindowState) {
     val scope = rememberCoroutineScope()
-    // ... (rest of the variables)
     var page by remember { mutableStateOf(DesktopPage.HOME) }
+    var previousPage by remember { mutableStateOf(DesktopPage.HOME) }
     var selectedProvider by remember { mutableStateOf(Provider.STREAMING_COMMUNITY) }
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
@@ -114,6 +117,13 @@ fun StreamForgeDesktopApp() {
     var continued by remember { mutableStateOf(DesktopLibraryStore.continueWatching()) }
     var status by remember { mutableStateOf("Pronto") }
 
+    fun navigateTo(newPage: DesktopPage) {
+        if (page != newPage) {
+            previousPage = page
+            page = newPage
+        }
+    }
+
     /** Resolves a title/episode and records it before the embedded player starts. */
     fun play(entry: LibraryEntry) = scope.launch {
         status = "Risoluzione stream…"
@@ -124,7 +134,7 @@ fun StreamForgeDesktopApp() {
             currentEntry = entry
             DesktopLibraryStore.saveProgress(entry)
             continued = DesktopLibraryStore.continueWatching()
-            page = DesktopPage.PLAYER
+            navigateTo(DesktopPage.PLAYER)
         }
     }
 
@@ -144,7 +154,7 @@ fun StreamForgeDesktopApp() {
         episodes = selectedSeason?.let { season ->
             runCatching { loadEpisodes(provider, enrichedItem, season) }.getOrDefault(emptyList())
         }.orEmpty()
-        status = "Pronto"; page = DesktopPage.DETAILS
+        status = "Pronto"; navigateTo(DesktopPage.DETAILS)
     }
 
     LaunchedEffect(Unit) {
@@ -156,14 +166,15 @@ fun StreamForgeDesktopApp() {
     // Never silently replace MPV with VLC: a different engine hides the real cause of a failure.
     var mpvFailure by remember(playbackUrl) { mutableStateOf<String?>(null) }
     var playerSession by remember(playbackUrl) { mutableStateOf(0) }
-    val savePlaybackProgress: (Long) -> Unit = { position ->
-        currentEntry?.let { entry -> DesktopLibraryStore.saveProgress(entry.copy(resumePositionMs = position)) }
+    val savePlaybackProgress: (Long, Long) -> Unit = { position, duration ->
+        currentEntry?.let { entry -> DesktopLibraryStore.saveProgress(entry.copy(resumePositionMs = position, durationMs = duration)) }
+        continued = DesktopLibraryStore.continueWatching()
     }
     val openNextEpisode: () -> Unit = {
         val entry = currentEntry
         val now = entry?.episode
         val next = now?.let { current -> episodes.firstOrNull { it.number > current.number } }
-        if (entry != null && next != null) play(entry.copy(episode = next, resumePositionMs = 0L))
+        if (entry != null && next != null) play(entry.copy(episode = next, resumePositionMs = 0L, durationMs = 0L))
     }
 
     if (page == DesktopPage.PLAYER && playbackUrl != null) {
@@ -202,21 +213,26 @@ fun StreamForgeDesktopApp() {
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = { mpvFailure = null; playerSession++ }) { Text("Riprova MPV") }
-                    Button(onClick = { page = DesktopPage.DETAILS }) { Text("Indietro") }
+                    Button(onClick = { page = previousPage }) { Text("Indietro") }
                 }
             }
         } else {
             key(playerSession) {
                 EmbeddedLibMpvPlayer(
                     url = playbackUrl!!,
-                    title = "[MPV] $playerTitle",
+                    title = playerTitle,
                     headers = playbackHeaders,
                     resumeAtMillis = currentEntry?.resumePositionMs ?: 0L,
                     onProgress = savePlaybackProgress,
                     onUnavailable = { message -> mpvFailure = message },
-                    onBack = { page = DesktopPage.DETAILS },
+                    onBack = { page = previousPage },
                     onNext = openNextEpisode,
                     hasNext = hasNext,
+                    isFullscreen = windowState.placement == WindowPlacement.Fullscreen,
+                    onToggleFullscreen = {
+                        windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen)
+                            WindowPlacement.Maximized else WindowPlacement.Fullscreen
+                    }
                 )
             }
         }
@@ -227,7 +243,9 @@ fun StreamForgeDesktopApp() {
         color = Color(0xFF101218) // Il tuo colore di sfondo
     ) {
     Row(modifier = Modifier.fillMaxSize().background(Color(0xFF101218))) {
-        Navigation(page) { page = it }
+        Navigation(page) { 
+            navigateTo(it)
+        }
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -238,13 +256,15 @@ fun StreamForgeDesktopApp() {
                     homeSeries,
                     continued,
                     { openDetails(Provider.STREAMING_COMMUNITY, it) },
-                    { page = DesktopPage.SEARCH })
+                    { play(it) },
+                    { navigateTo(DesktopPage.SEARCH) })
 
                 DesktopPage.SEARCH -> SearchPage(
                     selectedProvider,
                     query,
                     results,
                     status,
+                    continued,
                     onProvider = { selectedProvider = it },
                     onQuery = { query = it },
                     onSearch = {
@@ -274,7 +294,7 @@ fun StreamForgeDesktopApp() {
                         episodes,
                         selectedSeason,
                         favorites.any { it.provider == selectedItemProvider.label && it.item.id == item.id },
-                        onBack = { page = DesktopPage.HOME },
+                        onBack = { page = previousPage },
                         onFavorite = {
                             DesktopLibraryStore.toggleFavorite(
                                 LibraryEntry(
@@ -430,6 +450,7 @@ private fun HomePage(
     series: List<MediaItem>,
     continued: List<LibraryEntry>,
     open: (MediaItem) -> Unit,
+    play: (LibraryEntry) -> Unit,
     search: () -> Unit
 ) = LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp)) {
     item {
@@ -446,7 +467,9 @@ private fun HomePage(
         MediaRow(
             "Continua a guardare",
             continued.map { it.item },
-            open
+            open,
+            continued = continued,
+            onPlayEntry = play
         )
     }
     item { MediaRow("Film popolari", movies, open) }; item {
@@ -459,7 +482,13 @@ private fun HomePage(
 }
 
 @Composable
-private fun MediaRow(title: String, media: List<MediaItem>, open: (MediaItem) -> Unit) =
+private fun MediaRow(
+    title: String,
+    media: List<MediaItem>,
+    open: (MediaItem) -> Unit,
+    continued: List<LibraryEntry> = emptyList(),
+    onPlayEntry: ((LibraryEntry) -> Unit)? = null
+) =
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             title,
@@ -467,19 +496,104 @@ private fun MediaRow(title: String, media: List<MediaItem>, open: (MediaItem) ->
         ); LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(
             media,
-            key = { it.id }) { MediaCard(it, { open(it) }) }
+            key = { it.id }) { item ->
+            val entry = continued.find { it.item.id == item.id }
+            if (entry != null && onPlayEntry != null) {
+                ContinueWatchingCardDesktop(entry, { open(item) }, { onPlayEntry(entry) })
+            } else {
+                MediaCard(item, { open(item) }, entry)
+            }
+        }
     }
     }
 
 @Composable
-private fun MediaCard(item: MediaItem, open: () -> Unit) = Card(
-    modifier = Modifier.width(160.dp).height(280.dp).clickable(onClick = open),
+private fun ContinueWatchingCardDesktop(
+    entry: LibraryEntry,
+    onOpen: () -> Unit,
+    onPlay: () -> Unit
+) = Card(
+    modifier = Modifier.width(200.dp).height(300.dp).clickable(onClick = onOpen),
     colors = androidx.compose.material3.CardDefaults.cardColors(
         containerColor = Color(0x18, 0x1C, 0x25)
     )
 ) {
     Column {
-        RemotePoster(item.posterUrl, Modifier.fillMaxWidth().height(220.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+            RemotePoster(entry.item.posterUrl, Modifier.fillMaxSize())
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .align(Alignment.Center)
+                    .clickable { onPlay() }
+                    .background(Color(0xFFFF7900), androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
+            }
+            
+            // Progress Bar (Feature 2)
+            if (entry.durationMs > 0) {
+                val progress = entry.resumePositionMs.toFloat() / entry.durationMs.toFloat()
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.BottomCenter),
+                    color = Color(0xFFFF7900),
+                    trackColor = Color.Gray.copy(alpha = 0.5f)
+                )
+            }
+        }
+        Column(Modifier.padding(8.dp)) {
+            Text(
+                entry.item.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+            if (entry.episode != null) {
+                Text(
+                    "S${entry.seasonNumber ?: 1}:E${entry.episode.number} - ${entry.episode.name}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFF7900),
+                    maxLines = 1
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            if (entry.durationMs > 0) {
+                val remaining = entry.durationMs - entry.resumePositionMs
+                Text(
+                    "Mancano ${formatDuration(remaining)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
+            } else {
+                Text("Riprendi visione", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaCard(item: MediaItem, open: () -> Unit, entry: LibraryEntry? = null) = Card(
+    modifier = Modifier.width(160.dp).height(300.dp).clickable(onClick = open),
+    colors = androidx.compose.material3.CardDefaults.cardColors(
+        containerColor = Color(0x18, 0x1C, 0x25)
+    )
+) {
+    Column {
+        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+            RemotePoster(item.posterUrl, Modifier.fillMaxSize())
+            if (entry != null && entry.durationMs > 0) {
+                val progress = entry.resumePositionMs.toFloat() / entry.durationMs.toFloat()
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(4.dp).align(Alignment.BottomCenter),
+                    color = Color(0xFFFF7900),
+                    trackColor = Color.Gray.copy(alpha = 0.5f)
+                )
+            }
+        }
         Column(Modifier.padding(8.dp)) {
             Text(
                 item.name,
@@ -503,6 +617,7 @@ private fun SearchPage(
     query: String,
     results: List<MediaItem>,
     status: String,
+    continued: List<LibraryEntry>,
     onProvider: (Provider) -> Unit,
     onQuery: (String) -> Unit,
     onSearch: () -> Unit,
@@ -539,7 +654,8 @@ private fun SearchPage(
         modifier = Modifier.fillMaxSize()
     ) {
         items(results, key = { it.id }) { item ->
-            MediaCard(item, { onOpen(item) })
+            val entry = continued.find { it.item.id == item.id }
+            MediaCard(item, { onOpen(item) }, entry)
         }
     }
 }
@@ -702,7 +818,7 @@ private fun LibraryPage(
         ) {
             items(entries, key = { "${it.provider}-${it.item.id}" }) { entry ->
                 Box {
-                    MediaCard(entry.item, { open(entry) })
+                    MediaCard(entry.item, { open(entry) }, entry)
                     androidx.compose.material3.IconButton(
                         onClick = { remove(entry) },
                         modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).background(Color.Black.copy(alpha = 0.5f), androidx.compose.foundation.shape.CircleShape)
@@ -713,6 +829,13 @@ private fun LibraryPage(
             }
         }
     }
+}
+
+private fun formatDuration(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 @Composable

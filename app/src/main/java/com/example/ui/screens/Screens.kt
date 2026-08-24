@@ -411,6 +411,7 @@ fun HomeScreen(
 ) {
     val trendingMovies by viewModel.homeTrendingMovies.collectAsStateWithLifecycle()
     val trendingSeries by viewModel.homeTrendingSeries.collectAsStateWithLifecycle()
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val actionMovies by viewModel.homeActionMovies.collectAsStateWithLifecycle()
     val comedyMovies by viewModel.homeComedyMovies.collectAsStateWithLifecycle()
     val homeError by viewModel.homeError.collectAsStateWithLifecycle()
@@ -488,10 +489,143 @@ fun HomeScreen(
         }
 
         // Horizontal Rows
+        if (continueWatchingList.isNotEmpty()) {
+            item {
+                ContinueWatchingRow(
+                    "Continua a guardare",
+                    continueWatchingList,
+                    onPlay = { item ->
+                        val mediaObj = MediaItem(
+                            id = item.mediaId,
+                            name = item.name,
+                            type = item.type,
+                            slug = item.slug,
+                            posterUrl = item.posterUrl,
+                            year = item.year
+                        )
+                        if (mediaObj.isMovie) {
+                            viewModel.setProvider(item.provider)
+                            viewModel.selectMediaItem(mediaObj)
+                            viewModel.playMovie(mediaObj)
+                        } else {
+                            val epObj = Episode(
+                                id = item.lastEpisodeId ?: 0,
+                                number = item.lastEpisodeNumber ?: 1,
+                                name = item.lastEpisodeName ?: "Episodio"
+                            )
+                            viewModel.setProvider(item.provider)
+                            viewModel.selectMediaItem(mediaObj, item.lastSeasonNumber ?: 1)
+                            viewModel.playEpisode(mediaObj, item.lastSeasonNumber ?: 1, epObj)
+                        }
+                    },
+                    onNavigateToDetails = { item ->
+                        val mediaObj = MediaItem(
+                            id = item.mediaId,
+                            name = item.name,
+                            type = item.type,
+                            slug = item.slug,
+                            posterUrl = item.posterUrl,
+                            year = item.year
+                        )
+                        viewModel.selectMediaItem(mediaObj)
+                        onNavigateToDetails()
+                    }
+                )
+            }
+        }
         item { HomeCarousel("Serie TV del Momento", trendingSeries, viewModel, onNavigateToDetails) }
         item { HomeCarousel("Film del Momento", trendingMovies, viewModel, onNavigateToDetails) }
         item { HomeCarousel("Azione", actionMovies, viewModel, onNavigateToDetails) }
         item { HomeCarousel("Commedia", comedyMovies, viewModel, onNavigateToDetails) }
+    }
+}
+
+@Composable
+fun ContinueWatchingRow(
+    title: String,
+    items: List<ContinueWatchingItem>,
+    onPlay: (ContinueWatchingItem) -> Unit,
+    onNavigateToDetails: (ContinueWatchingItem) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = ForgeOrange,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(items) { item ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
+                    modifier = Modifier
+                        .width(160.dp)
+                        .height(240.dp)
+                        .clickable { onNavigateToDetails(item) }
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AsyncImage(
+                            model = item.posterUrl,
+                            contentDescription = item.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                                    )
+                                )
+                        )
+                        
+                        IconButton(
+                            onClick = { onPlay(item) },
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(48.dp)
+                                .background(ForgeOrange, CircleShape)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(8.dp)
+                        ) {
+                            Text(
+                                item.name,
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1
+                            )
+                            if (item.lastEpisodeNumber != null) {
+                                Text(
+                                    "S${item.lastSeasonNumber}:E${item.lastEpisodeNumber}",
+                                    color = ForgeOrange,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            
+                            if (item.lastPositionMillis != null && item.durationMillis != null && item.durationMillis > 0) {
+                                LinearProgressIndicator(
+                                    progress = (item.lastPositionMillis.toFloat() / item.durationMillis.toFloat()),
+                                    modifier = Modifier.fillMaxWidth().height(2.dp).padding(top = 4.dp),
+                                    color = ForgeOrange,
+                                    trackColor = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -503,6 +637,8 @@ fun HomeCarousel(
     onNavigateToDetails: () -> Unit
 ) {
     if (items.isEmpty()) return
+
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Text(
@@ -516,6 +652,7 @@ fun HomeCarousel(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(items) { item ->
+                val progressEntry = continueWatchingList.find { it.mediaId == item.id }
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = DarkSurfaceVariant),
@@ -544,6 +681,36 @@ fun HomeCarousel(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
+                        
+                        if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
+                            val progress = progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                            LinearProgressIndicator(
+                                progress = { progress.coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .align(Alignment.BottomCenter),
+                                color = ForgeOrange,
+                                trackColor = Color.White.copy(alpha = 0.2f)
+                            )
+                            
+                            // Remaining time text (Feature 2)
+                            val remaining = progressEntry.durationMillis - progressEntry.lastPositionMillis!!
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(4.dp)
+                                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "-${formatMillis(remaining)}",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -699,6 +866,7 @@ fun FavoritesTab(
     onNavigateToDetails: () -> Unit
 ) {
     val favoritesList by viewModel.favoritesList.collectAsStateWithLifecycle()
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -763,8 +931,12 @@ fun FavoritesTab(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(favoritesList, key = { it.id }) { item ->
+                    val progressEntry = continueWatchingList.find { it.mediaId == item.mediaId }
                     FavoriteGridCard(
                         item = item,
+                        progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
+                            progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                        } else null,
                         onClick = {
                             val mediaObj = MediaItem(
                                 id = item.mediaId,
@@ -800,6 +972,7 @@ fun FavoritesTab(
 @Composable
 fun FavoriteGridCard(
     item: FavoriteItem,
+    progress: Float? = null,
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
@@ -869,6 +1042,35 @@ fun FavoriteGridCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
+                
+                // Progress Bar Overlay (Feature 2)
+                if (progress != null) {
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .align(Alignment.BottomCenter),
+                        color = ForgeOrange,
+                        trackColor = Color.White.copy(alpha = 0.2f)
+                    )
+                    
+                    // Percentage overlay for favorites
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = 12.dp, end = 8.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             Column(modifier = Modifier.padding(10.dp)) {
@@ -903,6 +1105,7 @@ fun SearchScreen(
     val provider by viewModel.selectedProvider.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val results by viewModel.searchResults.collectAsStateWithLifecycle()
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
     val searchError by viewModel.searchError.collectAsStateWithLifecycle()
     val isBootstrapping by viewModel.isBootstrapping.collectAsStateWithLifecycle()
@@ -1083,8 +1286,12 @@ fun SearchScreen(
                 // Search result listing
                 if (!isSearching && results.isNotEmpty()) {
                     items(results) { mediaItem ->
+                        val progressEntry = continueWatchingList.find { it.mediaId == mediaItem.id }
                         MediaItemSearchRow(
                             item = mediaItem,
+                            progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
+                                progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                            } else null,
                             onClick = {
                                 viewModel.selectMediaItem(mediaItem)
                                 onNavigateToDetails()
@@ -1258,13 +1465,32 @@ fun ContinueWatchingCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            if (item.lastPositionMillis != null && item.durationMillis != null && item.durationMillis > 0) {
+                val elapsed = formatMillis(item.lastPositionMillis)
+                val remaining = formatMillis(item.durationMillis - item.lastPositionMillis)
+                Text(
+                    text = "Visto $elapsed - Mancano $remaining",
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
+}
+
+private fun formatMillis(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
 }
 
 @Composable
 fun MediaItemSearchRow(
     item: MediaItem,
+    progress: Float? = null,
     onClick: () -> Unit
 ) {
     Card(
@@ -1280,26 +1506,35 @@ fun MediaItemSearchRow(
                 .padding(8.dp)
                 .fillMaxWidth()
         ) {
-            if (item.posterUrl != null) {
-                AsyncImage(
-                    model = item.posterUrl,
-                    contentDescription = item.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .width(80.dp)
-                        .height(115.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .width(80.dp)
-                        .height(115.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Gray.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = ForgeOrange)
+            Box(modifier = Modifier.width(80.dp).height(115.dp).clip(RoundedCornerShape(8.dp))) {
+                if (item.posterUrl != null) {
+                    AsyncImage(
+                        model = item.posterUrl,
+                        contentDescription = item.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Gray.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = ForgeOrange)
+                    }
+                }
+
+                if (progress != null) {
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .align(Alignment.BottomCenter),
+                        color = ForgeOrange,
+                        trackColor = Color.White.copy(alpha = 0.2f)
+                    )
                 }
             }
 
@@ -1310,14 +1545,27 @@ fun MediaItemSearchRow(
                     .weight(1f)
                     .align(Alignment.CenterVertically)
             ) {
-                Text(
-                    text = item.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = item.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    if (progress != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            color = ForgeOrange,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -1386,6 +1634,7 @@ fun DetailScreen(
     val selectedSeason by viewModel.selectedSeasonNumber.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingDetails.collectAsStateWithLifecycle()
     val detailsError by viewModel.detailsError.collectAsStateWithLifecycle()
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
 
     val isExtracting by viewModel.isExtractingStream.collectAsStateWithLifecycle()
     val streamError by viewModel.streamError.collectAsStateWithLifecycle()
@@ -1759,8 +2008,12 @@ fun DetailScreen(
                         }
                     } else {
                         items(episodes) { episode ->
+                            val progressEntry = continueWatchingList.find { it.mediaId == item.id && it.lastEpisodeId == episode.id }
                             EpisodeRow(
                                 episode = episode,
+                                progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
+                                    progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                                } else null,
                                 onClick = {
                                     viewModel.playEpisode(item, selectedSeason ?: 1, episode)
                                 },
@@ -1781,6 +2034,7 @@ fun DetailScreen(
 @Composable
 fun EpisodeRow(
     episode: Episode,
+    progress: Float? = null,
     onClick: () -> Unit,
     onCopyClick: () -> Unit = {},
     enabled: Boolean
@@ -1793,64 +2047,66 @@ fun EpisodeRow(
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         shape = RoundedCornerShape(8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(modifier = Modifier.weight(1f)) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(ForgeOrange.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = episode.number.toString(),
-                        color = ForgeOrange,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .padding(12.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(ForgeOrange.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = episode.number.toString(),
+                            color = ForgeOrange,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.align(Alignment.CenterVertically)) {
+                        Text(
+                            text = episode.name,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.align(Alignment.CenterVertically)) {
-                    Text(
-                        text = episode.name,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (progress != null) {
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            color = ForgeOrange,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
+                    IconButton(onClick = onCopyClick) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copia", tint = SteelGrey, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onCopyClick,
-                    enabled = enabled,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Copia link m3u8",
-                        tint = if (enabled) ForgeOrange else SteelGrey,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Riproduci",
-                    tint = if (enabled) ForgeOrange else SteelGrey,
-                    modifier = Modifier.size(24.dp)
+            
+            if (progress != null) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    color = ForgeOrange,
+                    trackColor = Color.Transparent
                 )
             }
         }
@@ -1872,6 +2128,8 @@ fun PlayerScreen(
     val provider = viewModel.selectedProvider.value
     val hasNextEpisode by viewModel.hasNextEpisode.collectAsStateWithLifecycle()
     val resumePosition by viewModel.playbackResumePosition.collectAsStateWithLifecycle()
+    val currentEpisode by viewModel.currentPlayingEpisode.collectAsStateWithLifecycle()
+    val currentSeason by viewModel.currentPlayingSeason.collectAsStateWithLifecycle()
 
     val currentStreamUrl = streamUrl ?: ""
     var isControllerVisible by remember { mutableStateOf(true) }
@@ -2079,19 +2337,50 @@ fun PlayerScreen(
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopStart)
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .padding(top = 16.dp, start = 16.dp)
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.5f))
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Chiudi Media Player",
-                    tint = Color.White
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = {
+                        try {
+                            val currentPos = exoPlayer.currentPosition
+                            val duration = exoPlayer.duration
+                            if (currentPos > 0 && duration > 0) {
+                                viewModel.updatePlaybackPosition(currentPos, duration)
+                            }
+                        } catch (e: Exception) {}
+                        onBack()
+                    },
+                    modifier = Modifier
+                        .padding(top = 16.dp, start = 16.dp)
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Chiudi Media Player",
+                        tint = Color.White
+                    )
+                }
+                
+                activeItem?.let { item ->
+                    Column(modifier = Modifier.padding(top = 16.dp, start = 12.dp)) {
+                        Text(
+                            text = item.name,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
+                        )
+                        currentEpisode?.let { ep ->
+                            Text(
+                                text = "S${currentSeason ?: 1}:E${ep.number} - ${ep.name}",
+                                color = ForgeOrange,
+                                fontSize = 12.sp,
+                                modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
 

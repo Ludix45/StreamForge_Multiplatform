@@ -12,9 +12,10 @@ import androidx.compose.ui.window.rememberWindowState
 
 /** Starts the desktop shell; Android keeps its own MainActivity unchanged. */
 fun main() = application {
+    val windowState = rememberWindowState(placement = WindowPlacement.Maximized)
     Window(title = "StreamForge Desktop",
         icon = painterResource("streamforge-logo.png"),
-        state = rememberWindowState(placement = WindowPlacement.Maximized),
+        state = windowState,
         onCloseRequest = ::exitApplication) {
         // A single explicit dark palette prevents Material components from inheriting
         // black text from the light default theme over the application's dark surfaces.
@@ -29,6 +30,6 @@ fun main() = application {
                 surfaceVariant = Color(0xFF2A303B),
                 onSurfaceVariant = Color(0xFFD8DEE9),
             ),
-        ) { StreamForgeDesktopApp() }
+        ) { StreamForgeDesktopApp(windowState) }
     }
 }

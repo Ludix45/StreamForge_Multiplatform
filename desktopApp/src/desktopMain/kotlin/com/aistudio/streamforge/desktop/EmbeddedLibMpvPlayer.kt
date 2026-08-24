@@ -46,22 +46,34 @@ fun EmbeddedLibMpvPlayer(
     title: String,
     headers: Map<String, String>,
     resumeAtMillis: Long,
-    onProgress: (Long) -> Unit,
+    onProgress: (Long, Long) -> Unit,
     onUnavailable: (String) -> Unit,
     onBack: () -> Unit,
     onNext: () -> Unit,
     hasNext: Boolean,
+    isFullscreen: Boolean = false,
+    onToggleFullscreen: () -> Unit = {}
 ) {
     val latestBack by rememberUpdatedState(onBack)
     val latestNext by rememberUpdatedState(onNext)
     val latestProgress by rememberUpdatedState(onProgress)
     val latestUnavailable by rememberUpdatedState(onUnavailable)
+    val latestToggleFullscreen by rememberUpdatedState(onToggleFullscreen)
     val player = remember {
-        LibMpvHost({ latestBack() }, { latestNext() }, { latestProgress(it) }, { latestUnavailable(it) })
+        LibMpvHost(
+            { latestBack() },
+            { latestNext() },
+            { pos, dur -> latestProgress(pos, dur) },
+            { latestUnavailable(it) },
+            { latestToggleFullscreen() }
+        )
     }
     DisposableEffect(player) { onDispose { player.release() } }
     LaunchedEffect(url, title, headers, resumeAtMillis, hasNext) {
         player.open(url, title, headers, resumeAtMillis, hasNext)
+    }
+    LaunchedEffect(isFullscreen) {
+        player.setFullscreen(isFullscreen)
     }
     SwingPanel(factory = { player.root }, modifier = Modifier.fillMaxSize())
 }
@@ -81,8 +93,9 @@ private interface LibMpvApi : Library {
 private class LibMpvHost(
     private val onBack: () -> Unit,
     private val onNext: () -> Unit,
-    private val onProgress: (Long) -> Unit,
+    private val onProgress: (Long, Long) -> Unit,
     private val onUnavailable: (String) -> Unit,
+    private val onToggleFullscreen: () -> Unit,
 ) {
     private val video = MpvCanvas()
     private var api: LibMpvApi? = null
@@ -96,6 +109,11 @@ private class LibMpvHost(
     private var audioTracks = mutableListOf<TrackInfo>()
     private var subtitleTracks = mutableListOf<TrackInfo>()
     
+    private var isFullscreen = false
+    private var controlsVisible = true
+    private var lastMouseMoveTime = System.currentTimeMillis()
+    private val autoHideTimer = Timer(1000) { checkAutoHide() }
+
     @Volatile private var status = "Preparazione player…"
     private val released = AtomicBoolean(false)
 
@@ -104,13 +122,44 @@ private class LibMpvHost(
     private lateinit var muteBtn: JButton
     private lateinit var volumeSlider: JSlider
     private lateinit var timeLabel: JLabel
+    private lateinit var infoLabel: JLabel
     private lateinit var audioCombo: JComboBox<String>
     private lateinit var subsCombo: JComboBox<String>
     private lateinit var seekSlider: JSlider
+    private lateinit var fsBtn: JButton
 
     val root: JPanel = JPanel(BorderLayout()).apply {
         background = Color.BLACK
         add(video, BorderLayout.CENTER)
+    }
+
+    private fun checkAutoHide() {
+        if (isFullscreen && controlsVisible && System.currentTimeMillis() - lastMouseMoveTime > 3000) {
+            setControlsVisibility(false)
+        }
+    }
+
+    private fun setControlsVisibility(visible: Boolean) {
+        controlsVisible = visible
+        EventQueue.invokeLater {
+            controls.isVisible = visible
+            if (!visible) {
+                // Hide cursor - not trivial in AWT without custom transparent cursor, 
+                // but we can at least hide the controls panel.
+                // For actual mouse hide, one would use:
+                // video.cursor = Toolkit.getDefaultToolkit().createCustomCursor(BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB), Point(0,0), "blank")
+            } else {
+                // video.cursor = Cursor.getDefaultCursor()
+            }
+        }
+    }
+
+    fun setFullscreen(fs: Boolean) {
+        isFullscreen = fs
+        EventQueue.invokeLater {
+            fsBtn.text = if (fs) "⤬" else "⛶"
+            if (!fs) setControlsVisibility(true)
+        }
     }
 
     private fun createControls(): JPanel {
@@ -158,6 +207,13 @@ private class LibMpvHost(
             font = font.deriveFont(12f)
         }
         bottomRow.add(timeLabel)
+        
+        // Info Label
+        infoLabel = JLabel("").apply {
+            foreground = Color(0xFF, 0x79, 0x00)
+            font = font.deriveFont(Font.BOLD, 12f)
+        }
+        bottomRow.add(infoLabel)
 
         bottomRow.add(Box.createHorizontalStrut(20))
 
@@ -209,7 +265,9 @@ private class LibMpvHost(
                 if (hasFocus()) {
                     val idx = selectedIndex
                     if (idx >= 0 && idx < audioTracks.size) {
-                        command("set audio ${audioTracks[idx].id}")
+                        val track = audioTracks[idx]
+                        command("set audio ${track.id}")
+                        DesktopLibraryStore.savePlayerPrefs(track.lang ?: "it", property("sid")?.toIntOrNull())
                     }
                 }
             }
@@ -227,9 +285,12 @@ private class LibMpvHost(
                     if (idx == 0) {
                         command("set sub-visibility no")
                         command("set sid no")
+                        DesktopLibraryStore.savePlayerPrefs(property("alang") ?: "it", null)
                     } else if (idx > 0 && idx <= subtitleTracks.size) {
+                        val track = subtitleTracks[idx - 1]
                         command("set sub-visibility yes")
-                        command("set sid ${subtitleTracks[idx - 1].id}")
+                        command("set sid ${track.id}")
+                        DesktopLibraryStore.savePlayerPrefs(property("alang") ?: "it", track.id)
                     }
                 }
             }
@@ -237,9 +298,15 @@ private class LibMpvHost(
         bottomRow.add(subsCombo)
 
         bottomRow.add(Box.createHorizontalGlue())
+        
+        // Fullscreen
+        fsBtn = playerButton("⛶") { onToggleFullscreen() }
+        bottomRow.add(fsBtn)
 
+        /*
         // Chiudi
         bottomRow.add(playerButton("✕") { onBack() })
+        */
 
         panel.add(bottomRow, BorderLayout.CENTER)
         return panel
@@ -270,6 +337,7 @@ private class LibMpvHost(
     }
 
     private var lastTracksUpdate = 0L
+    private var prefsApplied = false
     private fun syncTracks() {
         val now = System.currentTimeMillis()
         if (now - lastTracksUpdate < 2000) return
@@ -302,6 +370,32 @@ private class LibMpvHost(
                     val subLabels = mutableListOf("Sottotitoli: Off")
                     subLabels.addAll(subtitleTracks.map { "Sub: ${it.title}" })
                     subsCombo.model = DefaultComboBoxModel(subLabels.toTypedArray())
+
+                    if (!prefsApplied) {
+                        prefsApplied = true
+                        val (savedAudio, savedSubId) = DesktopLibraryStore.getPlayerPrefs()
+                        
+                        // Apply audio pref
+                        val targetAudio = audioTracks.find { it.lang == savedAudio } ?: audioTracks.firstOrNull()
+                        targetAudio?.let { 
+                            command("set audio ${it.id}")
+                            audioCombo.selectedIndex = audioTracks.indexOf(it)
+                        }
+
+                        // Apply sub pref
+                        if (savedSubId != null) {
+                            val targetSub = subtitleTracks.find { it.id == savedSubId }
+                            targetSub?.let {
+                                command("set sub-visibility yes")
+                                command("set sid ${it.id}")
+                                subsCombo.selectedIndex = subtitleTracks.indexOf(it) + 1
+                            }
+                        } else {
+                            command("set sub-visibility no")
+                            command("set sid no")
+                            subsCombo.selectedIndex = 0
+                        }
+                    }
                 }
             }
         }.start()
@@ -319,7 +413,7 @@ private class LibMpvHost(
         }
         if (positionMs > 0 && kotlin.math.abs(positionMs - lastSavedMs) >= 3_000L) {
             lastSavedMs = positionMs
-            onProgress(positionMs)
+            onProgress(positionMs, durationMs)
         }
         updateUI()
         syncTracks()
@@ -328,11 +422,40 @@ private class LibMpvHost(
     init {
         controls = createControls()
         root.add(controls, BorderLayout.SOUTH)
+        
+        val mouseListener = object : MouseAdapter() {
+            override fun mouseMoved(e: MouseEvent) {
+                lastMouseMoveTime = System.currentTimeMillis()
+                if (!controlsVisible) setControlsVisibility(true)
+            }
+        }
+        video.addMouseMotionListener(mouseListener)
+        controls.addMouseMotionListener(mouseListener)
+        
+        video.addKeyListener(object : java.awt.event.KeyAdapter() {
+            override fun keyPressed(e: java.awt.event.KeyEvent) {
+                when (e.keyCode) {
+                    java.awt.event.KeyEvent.VK_ESCAPE -> {
+                        if (isFullscreen) onToggleFullscreen() else onBack()
+                    }
+                    java.awt.event.KeyEvent.VK_BACK_SPACE -> onBack()
+                    java.awt.event.KeyEvent.VK_SPACE -> {
+                        paused = !paused
+                        command("cycle pause")
+                        updateUI()
+                    }
+                }
+            }
+        })
+        video.isFocusable = true
+        
+        autoHideTimer.start()
         video.onPeerReady = { /* Handled in open() */ }
     }
 
     /** Opens one stream using an in-process libmpv context, never an external mpv.exe process. */
     fun open(url: String, title: String, headers: Map<String, String>, resumeAtMillis: Long, hasNext: Boolean) {
+        EventQueue.invokeLater { infoLabel.text = title }
         if (released.get()) return
         resumeAtMs = resumeAtMillis.coerceAtLeast(0)
         status = "Caricamento MPV integrato…"
@@ -404,7 +527,11 @@ private class LibMpvHost(
             }
             synchronized(this) { api = library; handle = context }
             command("loadfile \"${url.replace("\\", "\\\\").replace("\"", "\\\"")}\" replace")
-            EventQueue.invokeLater { if (!progressTimer.isRunning) progressTimer.start(); updateUI() }
+            EventQueue.invokeLater { 
+                if (!progressTimer.isRunning) progressTimer.start()
+                updateUI()
+                video.requestFocusInWindow()
+            }
         }, "streamforge-libmpv-start").apply { isDaemon = true; start() }
     }
 
@@ -423,7 +550,9 @@ private class LibMpvHost(
     fun release() {
         if (!released.compareAndSet(false, true)) return
         progressTimer.stop()
-        positionMs.takeIf { it > 0 }?.let(onProgress)
+        if (positionMs > 0) {
+            onProgress(positionMs, durationMs)
+        }
         synchronized(this) {
             handle?.let { current -> api?.mpv_terminate_destroy(current) }
             handle = null; api = null

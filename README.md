@@ -27,11 +27,11 @@ StreamForge leverages advanced scraping technology and a robust playback engine 
 
 
 <!-- START_RELEASE_MSI -->
-[![Download Windows Installer](https://img.shields.io/badge/Download-Windows%20.MSI-0078D4?style=for-the-badge&logo=windows&logoColor=white)](#)
+[![Download Windows Installer](https://img.shields.io/badge/Download-Windows%20.MSI-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Ludix45/StreamForge_Multiplatform/releases/download/1.2.2/StreamForge-1.2.2.msi)
 <!-- END_RELEASE_MSI -->
 
 <!-- START_RELEASE_APK -->
-[![Download Android APK](https://img.shields.io/badge/Download-Android%20.APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20.APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Ludix45/StreamForge_Multiplatform/releases/download/1.2.2/StreamForge-1.2.2.apk)
 <!-- END_RELEASE_APK -->
 
 *For other platforms (macOS, Linux), please check the [Releases](https://github.com/Ludix45/StreamForge_Multiplatform/releases) page.*

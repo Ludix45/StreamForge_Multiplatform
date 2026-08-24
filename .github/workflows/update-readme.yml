@@ -2,6 +2,8 @@ name: Update README Release Links
 on:
   release:
     types: [published]
+  workflow_dispatch: # Permette di avviare l'aggiornamento manualmente
+
 
 jobs:
   update-readme:

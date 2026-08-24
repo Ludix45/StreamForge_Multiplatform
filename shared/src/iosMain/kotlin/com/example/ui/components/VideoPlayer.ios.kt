@@ -29,11 +29,6 @@ actual fun VideoPlayer(
     }
 
     val playerLayer = remember { AVPlayerLayer.playerLayerWithPlayer(player) }
-    val playerContainer = remember {
-        UIView().apply {
-            layer.addSublayer(playerLayer)
-        }
-    }
 
     DisposableEffect(Unit) {
         player.play()
@@ -44,13 +39,20 @@ actual fun VideoPlayer(
 
     Box(modifier = modifier.background(Color.Black)) {
         UIKitView(
-            factory = { playerContainer },
+            factory = {
+                val container = UIView()
+                container.layer.addSublayer(playerLayer)
+                container
+            },
             modifier = modifier,
-            update = { view ->
+            onResize = { view, rect ->
                 CATransaction.begin()
                 CATransaction.setValue(true, kCATransactionDisableActions)
-                playerLayer.setFrame(view.bounds)
+                playerLayer.setFrame(rect)
                 CATransaction.commit()
+            },
+            update = { _ ->
+                player.play()
             }
         )
     }

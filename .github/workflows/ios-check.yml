@@ -20,11 +20,19 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Cache Konan (Kotlin/Native)
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build Shared XCFramework
-        run: ./gradlew :shared:assembleSharedReleaseXCFramework
+        run: ./gradlew :shared:assembleSharedReleaseXCFramework -Dorg.gradle.workers.max=1 -Dkotlin.native.jvmArgs="-Xmx6g" --stacktrace
         
       - name: Upload XCFramework
         uses: actions/upload-artifact@v4

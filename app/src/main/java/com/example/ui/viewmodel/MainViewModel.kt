@@ -46,6 +46,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _tmdbApiKey = MutableStateFlow("c90967c3177c7d60362c59fa9cb4a333")
     val tmdbApiKey = _tmdbApiKey.asStateFlow()
 
+    private val _isOnboardingCompleted = MutableStateFlow(prefs.getBoolean("onboarding_completed", false))
+    val isOnboardingCompleted = _isOnboardingCompleted.asStateFlow()
+
     init {
         updateScraperSettings()
     }
@@ -64,14 +67,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putString("provider_language", lang).apply()
         _providerLanguage.value = lang
         updateScraperSettings()
-        
+
         // Se c'è un elemento selezionato, aggiornalo immediatamente
         val current = _selectedMediaItem.value
         if (current != null && (current.providerLanguage == "it" || current.providerLanguage == "en")) {
             switchMediaLanguage(lang)
         }
     }
-    
+
     fun setSubtitleLanguage(lang: String) {
         prefs.edit().putString("sub_language", lang).apply()
         _subtitleLanguage.value = lang
@@ -87,6 +90,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Scraper.tmdbApiKey = _tmdbApiKey.value
         Scraper.apiLanguage = if (_appLanguage.value == "it") "it-IT" else "en-US"
         Scraper.defaultProviderLanguage = _providerLanguage.value
+    }
+
+    fun completeOnboarding() {
+        prefs?.edit()?.putBoolean("onboarding_completed", true)?.apply()
+        _isOnboardingCompleted.value = true
     }
 
     // Current playing episode/season tracker for next episode logic

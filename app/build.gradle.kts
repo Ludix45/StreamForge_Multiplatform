@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.secrets)
 }
 
+
 android {
   namespace = "com.example"
   compileSdk = 36

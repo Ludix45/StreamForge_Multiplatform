@@ -19,6 +19,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -57,7 +58,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem as MediaItem3
 import androidx.media3.common.MimeTypes
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -76,6 +80,8 @@ import com.example.ui.theme.DarkSurfaceVariant
 import com.example.ui.theme.ForgeGold
 import com.example.ui.theme.ForgeOrange
 import com.example.ui.theme.SteelGrey
+import com.example.ui.theme.DarkBackgroundTr
+import com.example.ui.theme.SoftWhite
 import com.example.ui.viewmodel.MainViewModel
 
 enum class Screen {
@@ -95,6 +101,11 @@ enum class Tab {
 @androidx.media3.common.util.UnstableApi
 @Composable
 fun AppNavigator(viewModel: MainViewModel) {
+    val isOnboardingCompleted by viewModel.isOnboardingCompleted.collectAsStateWithLifecycle()
+
+
+
+
     var currentScreen by remember { mutableStateOf(Screen.SEARCH) }
     var selectedTab by remember { mutableStateOf(Tab.HOME) } // Starts on Home (Prime Video style)
 
@@ -115,6 +126,8 @@ fun AppNavigator(viewModel: MainViewModel) {
             else -> {}
         }
     }
+
+
 
     // Reactively switch to PLAYER screen if a stream URL is successfully extracted
     LaunchedEffect(activeStreamUrl) {
@@ -285,6 +298,10 @@ fun AppNavigator(viewModel: MainViewModel) {
             }
         }
     }
+    if (!isOnboardingCompleted) {
+        OnboardingScreen(onFinished = { viewModel.completeOnboarding() })
+        return
+    }
 }
 
 /* ==========================================================================================
@@ -315,11 +332,11 @@ fun SettingsScreen(viewModel: MainViewModel) {
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Text(text = "Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        
+
         // Impostazioni Lingua
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(text = "Lingua", fontSize = 18.sp, color = ForgeOrange)
-            
+
             // Lingua App (TMDB e UI)
             Text(text = "Lingua App (Titoli e Trama)", color = Color.LightGray, fontSize = 14.sp)
             Box {
@@ -346,9 +363,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Lingua Provider (StreamingCommunity)
             Text(text = "Lingua Audio Predefinita", color = Color.LightGray, fontSize = 14.sp)
             Box {
@@ -376,7 +393,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 }
             }
         }
-        
+
         HorizontalDivider(color = SteelGrey.copy(alpha = 0.5f))
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -588,7 +605,7 @@ fun ContinueWatchingRow(
                                     )
                                 )
                         )
-                        
+
                         IconButton(
                             onClick = { onPlay(item) },
                             modifier = Modifier
@@ -617,7 +634,7 @@ fun ContinueWatchingRow(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             }
-                            
+
                             if (item.lastPositionMillis != null && item.durationMillis != null && item.durationMillis > 0) {
                                 LinearProgressIndicator(
                                     progress = (item.lastPositionMillis.toFloat() / item.durationMillis.toFloat()),
@@ -686,7 +703,7 @@ fun HomeCarousel(
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
-                        
+
                         if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
                             val progress = progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
                             LinearProgressIndicator(
@@ -698,7 +715,7 @@ fun HomeCarousel(
                                 color = ForgeOrange,
                                 trackColor = Color.White.copy(alpha = 0.2f)
                             )
-                            
+
                             // Remaining time text (Feature 2)
                             val remaining = progressEntry.durationMillis - (progressEntry.lastPositionMillis ?: 0L)
                             Box(
@@ -1047,7 +1064,7 @@ fun FavoriteGridCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                
+
                 // Progress Bar Overlay (Feature 2)
                 if (progress != null) {
                     LinearProgressIndicator(
@@ -1059,7 +1076,7 @@ fun FavoriteGridCard(
                         color = ForgeOrange,
                         trackColor = Color.White.copy(alpha = 0.2f)
                     )
-                    
+
                     // Percentage overlay for favorites
                     Box(
                         modifier = Modifier
@@ -1180,12 +1197,12 @@ fun SearchScreen(
                     ) {
                         allProviders.forEach { p ->
                             DropdownMenuItem(
-                                text = { 
+                                text = {
                                     Text(
-                                        p, 
+                                        p,
                                         color = if (p.equals(provider, ignoreCase = true)) ForgeOrange else Color.White,
                                         fontWeight = if (p.equals(provider, ignoreCase = true)) FontWeight.Bold else FontWeight.Normal
-                                    ) 
+                                    )
                                 },
                                 onClick = {
                                     viewModel.setProvider(p)
@@ -1560,7 +1577,7 @@ fun MediaItemSearchRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    
+
                     if (progress != null) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -2090,7 +2107,7 @@ fun EpisodeRow(
                         )
                     }
                 }
-                
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (progress != null) {
                         Text(
@@ -2106,7 +2123,7 @@ fun EpisodeRow(
                     }
                 }
             }
-            
+
             if (progress != null) {
                 LinearProgressIndicator(
                     progress = { progress.coerceIn(0f, 1f) },
@@ -2146,7 +2163,7 @@ fun PlayerScreen(
     var showExtraControls by remember { mutableStateOf(false) }
     // Stato per la funzione zoom/riempi (limita bordi neri)
     var isZoomed by remember { mutableStateOf(false) }
-    
+
     val appLang by viewModel.appLanguage.collectAsStateWithLifecycle()
     val subLang by viewModel.subtitleLanguage.collectAsStateWithLifecycle()
     val activeItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
@@ -2369,7 +2386,7 @@ fun PlayerScreen(
                         tint = Color.White
                     )
                 }
-                
+
                 activeItem?.let { item ->
                     Column(modifier = Modifier.padding(top = 16.dp, start = 12.dp)) {
                         Text(
@@ -2584,3 +2601,140 @@ fun PlayerScreen(
         }
     }
 }
+
+/* ==========================================================================================
+   ONBOARDING / TUTORIAL SCREEN
+   ========================================================================================== */
+
+@Composable
+fun OnboardingScreen(onFinished: () -> Unit) {
+    val pages = listOf(
+        OnboardingPage(
+            "Benvenuto su StreamForge",
+            "La tua nuova esperienza di streaming definitiva. Semplice, veloce e senza pubblicità.",
+            Icons.Default.PlayCircle,
+            ForgeOrange
+        ),
+        OnboardingPage(
+            "Tutto a portata di click",
+            "Cerca i tuoi film e serie TV preferiti tra diversi provider affidabili.",
+            Icons.Default.Search,
+            ForgeGold
+        ),
+        OnboardingPage(
+            "Non perdere il filo",
+            "Salva i tuoi preferiti e riprendi la visione esattamente da dove avevi lasciato.",
+            Icons.Default.Favorite,
+            Color.Red
+        )
+    )
+
+    val pagerState = rememberPagerState(pageCount = { pages.size })
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        containerColor = DarkBackgroundTr
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) { pageIndex ->
+                val page = pages[pageIndex]
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                        //.padding(top = 50.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = page.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(120.dp),
+                        tint = page.color
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        text = page.title,
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = page.description,
+                        color = ForgeOrange,
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            // Pager Indicators and Button
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 80.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.padding(bottom = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    repeat(pages.size) { iteration ->
+                        val color = if (pagerState.currentPage == iteration) ForgeOrange else SteelGrey.copy(alpha = 0.5f)
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        if (pagerState.currentPage == pages.size - 1) {
+                            onFinished()
+                        } else {
+                            scope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = if (pagerState.currentPage == pages.size - 1) "Inizia Ora" else "Avanti",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+data class OnboardingPage(
+    val title: String,
+    val description: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val color: Color
+)

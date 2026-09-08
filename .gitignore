@@ -24,3 +24,5 @@ work/
 *.msi
 *.dll
 desktopApp/build/
+StreamForge_KeyStore
+keystore.properties

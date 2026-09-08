@@ -11,6 +11,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - name: Get Latest Assets
         id: assets
@@ -45,5 +47,5 @@ jobs:
           else
             git add README.md
             git commit -m "docs: update latest release links in README"
-            git push
+            git push origin HEAD:${{ github.ref_name }}
           fi

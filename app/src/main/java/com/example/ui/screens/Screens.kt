@@ -947,7 +947,7 @@ fun ContinueWatchingTab(
                         painter = painterResource(id = R.drawable.streamforge_logo),
                         contentDescription = "StreamForge Logo",
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(50.dp)
                             .clip(CircleShape)
                             .border(1.5.dp, ForgeOrange, CircleShape)
                     )
@@ -1630,14 +1630,15 @@ fun ContinueWatchingCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, ForgeOrange.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
+            .border(1.dp, ForgeOrange.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .clickable { onNavigateToDetails(item) },
         colors = CardDefaults.cardColors(containerColor = DarkSurface)
     ) {
         Box(
             modifier = Modifier
                 .height(120.dp)
                 .fillMaxWidth()
-                .clickable { onNavigateToDetails(item) }) {
+        ) {
             if (item.posterUrl != null) {
                 AsyncImage(
                     model = item.posterUrl,

@@ -559,6 +559,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _streamError.value = "Impossibile estrarre il link di streaming: ${e.message}"
             } finally {
                 _isExtractingStream.value = false
+                _resumingItemId.value = null
             }
         }
     }
@@ -804,6 +805,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _streamError.value = "Impossibile cambiare lingua: ${e.message}"
             } finally {
                 _isExtractingStream.value = false
+                _resumingItemId.value = null
             }
         }
     }
@@ -848,6 +850,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearPlayerState() {
         _activeStreamUrl.value = null
         _streamError.value = null
+        _resumingItemId.value = null
     }
 
     fun deleteContinueWatchingItem(id: String) {

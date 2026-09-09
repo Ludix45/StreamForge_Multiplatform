@@ -33,10 +33,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val favDao = db.favoriteDao()
     private val prefs = application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
-    private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "it") ?: "it")
+    private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "en") ?: "en")
     val appLanguage = _appLanguage.asStateFlow()
     
-    private val _providerLanguage = MutableStateFlow(prefs.getString("provider_language", "it") ?: "it")
+    private val _providerLanguage = MutableStateFlow(prefs.getString("provider_language", "en") ?: "en")
     val providerLanguage = _providerLanguage.asStateFlow()
 
     // Sottotitoli disattivati di default: l'utente deve attivarli esplicitamente dal player.
@@ -97,6 +97,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isOnboardingCompleted.value = true
     }
 
+    fun resetOnboarding() {
+        prefs?.edit()?.putBoolean("onboarding_completed", false)?.apply()
+        _isOnboardingCompleted.value = false
+    }
+
     // Current playing episode/season tracker for next episode logic
     private val _currentPlayingEpisode = MutableStateFlow<Episode?>(null)
     val currentPlayingEpisode = _currentPlayingEpisode.asStateFlow()
@@ -150,6 +155,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _playbackResumePosition = MutableStateFlow<Long>(0L)
     val playbackResumePosition = _playbackResumePosition.asStateFlow()
+
+    private val _resumingItemId = MutableStateFlow<String?>(null)
+    val resumingItemId = _resumingItemId.asStateFlow()
 
     // Bootstrap verification
     private val _isBootstrapping = MutableStateFlow(true)
@@ -519,6 +527,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _activeStreamUrl.value = null
         _currentPlayingEpisode.value = null
         _currentPlayingSeason.value = null
+        _resumingItemId.value = "${_selectedProvider.value}_${item.id}"
 
         viewModelScope.launch {
             try {
@@ -640,6 +649,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _activeStreamUrl.value = null
         _currentPlayingEpisode.value = episode
         _currentPlayingSeason.value = seasonNumber
+        _resumingItemId.value = "${_selectedProvider.value}_${item.id}"
 
         viewModelScope.launch {
             try {

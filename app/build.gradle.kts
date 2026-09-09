@@ -17,7 +17,7 @@ android {
     applicationId = "com.streamforge"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
+    versionCode = 3
     versionName = "1.2.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

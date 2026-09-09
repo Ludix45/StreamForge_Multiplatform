@@ -60,6 +60,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.focus.focusModifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem as MediaItem3
@@ -82,6 +83,12 @@ import com.example.ui.theme.ForgeOrange
 import com.example.ui.theme.SteelGrey
 import com.example.ui.theme.DarkBackgroundTr
 import com.example.ui.theme.SoftWhite
+import com.example.ui.LocalStreamForgeStrings
+import com.example.ui.ItalianStrings
+import com.example.ui.EnglishStrings
+import com.example.ui.SpanishStrings
+import com.example.ui.FrenchStrings
+import com.example.ui.s
 import com.example.ui.viewmodel.MainViewModel
 
 enum class Screen {
@@ -102,207 +109,270 @@ enum class Tab {
 @Composable
 fun AppNavigator(viewModel: MainViewModel) {
     val isOnboardingCompleted by viewModel.isOnboardingCompleted.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
 
-
-
-
-    var currentScreen by remember { mutableStateOf(Screen.SEARCH) }
-    var selectedTab by remember { mutableStateOf(Tab.HOME) } // Starts on Home (Prime Video style)
-
-    val activeStreamUrl by viewModel.activeStreamUrl.collectAsStateWithLifecycle()
-    val selectedItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
-
-    // Handle back button presses cleanly
-    BackHandler(enabled = currentScreen != Screen.SEARCH) {
-        when (currentScreen) {
-            Screen.PLAYER -> {
-                viewModel.clearPlayerState()
-                currentScreen = if (selectedItem != null) Screen.DETAIL else Screen.SEARCH
-            }
-            Screen.DETAIL -> {
-                viewModel.selectMediaItem(null)
-                currentScreen = Screen.SEARCH
-            }
-            else -> {}
-        }
+    val strings = when (appLanguage) {
+        "it" -> ItalianStrings
+        "es" -> SpanishStrings
+        "fr" -> FrenchStrings
+        else -> EnglishStrings
     }
 
+    CompositionLocalProvider(LocalStreamForgeStrings provides strings) {
 
+        var currentScreen by remember { mutableStateOf(Screen.SEARCH) }
+        var selectedTab by remember { mutableStateOf(Tab.HOME) } // Starts on Home (Prime Video style)
 
-    // Reactively switch to PLAYER screen if a stream URL is successfully extracted
-    LaunchedEffect(activeStreamUrl) {
-        if (activeStreamUrl != null) {
-            currentScreen = Screen.PLAYER
-        }
-    }
+        val activeStreamUrl by viewModel.activeStreamUrl.collectAsStateWithLifecycle()
+        val selectedItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
 
-    if (currentScreen == Screen.PLAYER) {
-        PlayerScreen(
-            viewModel = viewModel,
-            onBack = {
-                viewModel.clearPlayerState()
-                currentScreen = if (selectedItem != null) Screen.DETAIL else Screen.SEARCH
-            }
-        )
-    } else {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = DarkBackground,
-            bottomBar = {
-                if (currentScreen == Screen.SEARCH) {
-
-                    NavigationBar(
-                        containerColor = DarkBackground,
-                        contentColor = Color.White,
-                        tonalElevation = 8.dp
-                    ) {
-
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.HOME,
-                            onClick = { selectedTab = Tab.HOME },
-                            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                            label = { Text("Home") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.SEARCH,
-                            onClick = { selectedTab = Tab.SEARCH },
-                            icon = { Icon(Icons.Default.Search, contentDescription = "Ricerca") },
-                            label = { Text("Ricerca") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.CONTINUE_WATCHING,
-                            onClick = { selectedTab = Tab.CONTINUE_WATCHING },
-                            icon = { Icon(Icons.Default.PlayArrow, contentDescription = "Continua") },
-                            label = { Text("Continua") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.FAVORITES,
-                            onClick = { selectedTab = Tab.FAVORITES },
-                            icon = { Icon(Icons.Default.Favorite, contentDescription = "Preferiti") },
-                            label = { Text("Preferiti") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                        NavigationBarItem(
-                            selected = selectedTab == Tab.SETTINGS,
-                            onClick = { selectedTab = Tab.SETTINGS },
-                            icon = { Icon(Icons.Default.Settings, contentDescription = "Impostazioni") },
-                            label = { Text("Impost.") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.Black,
-                                selectedTextColor = ForgeOrange,
-                                indicatorColor = ForgeOrange,
-                                unselectedIconColor = SteelGrey,
-                                unselectedTextColor = SteelGrey
-                            )
-                        )
-                    }
+        // Handle back button presses cleanly
+        BackHandler(enabled = currentScreen != Screen.SEARCH) {
+            when (currentScreen) {
+                Screen.PLAYER -> {
+                    viewModel.clearPlayerState()
+                    currentScreen = if (selectedItem != null) Screen.DETAIL else Screen.SEARCH
                 }
+
+                Screen.DETAIL -> {
+                    viewModel.selectMediaItem(null)
+                    currentScreen = Screen.SEARCH
+                }
+
+                else -> {}
             }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .background(DarkBackground)
-            ) {
-                when (currentScreen) {
-                    Screen.SEARCH -> {
-                        when (selectedTab) {
-                            Tab.HOME -> {
-                                HomeScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    }
+        }
+
+        // Reactively switch to PLAYER screen if a stream URL is successfully extracted
+        LaunchedEffect(activeStreamUrl) {
+            if (activeStreamUrl != null) {
+                currentScreen = Screen.PLAYER
+            }
+        }
+
+        if (currentScreen == Screen.PLAYER) {
+            PlayerScreen(
+                viewModel = viewModel,
+                onBack = {
+                    viewModel.clearPlayerState()
+                    currentScreen = if (selectedItem != null) Screen.DETAIL else Screen.SEARCH
+                }
+            )
+        } else {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = DarkBackground,
+                bottomBar = {
+                    if (currentScreen == Screen.SEARCH) {
+                        NavigationBar(
+                            containerColor = DarkBackground,
+                            contentColor = Color.White,
+                            tonalElevation = 8.dp
+                        ) {
+                            NavigationBarItem(
+                                selected = selectedTab == Tab.HOME,
+                                onClick = { selectedTab = Tab.HOME },
+                                icon = { Icon(Icons.Default.Home, contentDescription = s.home) },
+                                label = {
+                                    Text(
+                                        s.home,
+                                        modifier = Modifier.wrapContentHeight(Alignment.CenterVertically),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = ForgeOrange,
+                                    indicatorColor = ForgeOrange,
+                                    unselectedIconColor = SteelGrey,
+                                    unselectedTextColor = SteelGrey
+                                ),
+
                                 )
-                            }
-                            Tab.SEARCH -> {
-                                SearchScreen(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    }
+                            NavigationBarItem(
+                                selected = selectedTab == Tab.SEARCH,
+                                onClick = { selectedTab = Tab.SEARCH },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Search,
+                                        contentDescription = s.search
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        s.search,
+                                        modifier = Modifier.wrapContentHeight(Alignment.CenterVertically),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = ForgeOrange,
+                                    indicatorColor = ForgeOrange,
+                                    unselectedIconColor = SteelGrey,
+                                    unselectedTextColor = SteelGrey
                                 )
-                            }
-                            Tab.CONTINUE_WATCHING -> {
-                                ContinueWatchingTab(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    },
-                                    onInstantPlayEpisode = { provider, item, seasonNum, ep ->
-                                        viewModel.setProvider(provider)
-                                        viewModel.selectMediaItem(item, seasonNum)
-                                        viewModel.playEpisode(item, seasonNum, ep)
-                                    },
-                                    onInstantPlayMovie = { provider, item ->
-                                        viewModel.setProvider(provider)
-                                        viewModel.selectMediaItem(item)
-                                        viewModel.playMovie(item)
-                                    }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == Tab.CONTINUE_WATCHING,
+                                onClick = { selectedTab = Tab.CONTINUE_WATCHING },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.PlayArrow,
+                                        contentDescription = s.continue_watching
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        s.continue_watching,
+                                        modifier = Modifier.wrapContentHeight(Alignment.CenterVertically),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = ForgeOrange,
+                                    indicatorColor = ForgeOrange,
+                                    unselectedIconColor = SteelGrey,
+                                    unselectedTextColor = SteelGrey
                                 )
-                            }
-                            Tab.FAVORITES -> {
-                                FavoritesTab(
-                                    viewModel = viewModel,
-                                    onNavigateToDetails = {
-                                        currentScreen = Screen.DETAIL
-                                    }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == Tab.FAVORITES,
+                                onClick = { selectedTab = Tab.FAVORITES },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Favorite,
+                                        contentDescription = s.favorites
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        s.favorites,
+                                        modifier = Modifier.wrapContentHeight(Alignment.CenterVertically),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = ForgeOrange,
+                                    indicatorColor = ForgeOrange,
+                                    unselectedIconColor = SteelGrey,
+                                    unselectedTextColor = SteelGrey
                                 )
-                            }
-                            Tab.SETTINGS -> {
-                                SettingsScreen(viewModel = viewModel)
-                            }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == Tab.SETTINGS,
+                                onClick = { selectedTab = Tab.SETTINGS },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = s.settings
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        s.settings,
+                                        modifier = Modifier.wrapContentHeight(Alignment.CenterVertically),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Color.Black,
+                                    selectedTextColor = ForgeOrange,
+                                    indicatorColor = ForgeOrange,
+                                    unselectedIconColor = SteelGrey,
+                                    unselectedTextColor = SteelGrey
+                                )
+                            )
                         }
                     }
-                    Screen.DETAIL -> {
-                        DetailScreen(
-                            viewModel = viewModel,
-                            onBack = {
-                                viewModel.selectMediaItem(null)
-                                currentScreen = Screen.SEARCH
+                }
+            ) { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .background(DarkBackground)
+                ) {
+                    when (currentScreen) {
+                        Screen.SEARCH -> {
+                            when (selectedTab) {
+                                Tab.HOME -> {
+                                    HomeScreen(
+                                        viewModel = viewModel,
+                                        onNavigateToDetails = {
+                                            currentScreen = Screen.DETAIL
+                                        }
+                                    )
+                                }
+
+                                Tab.SEARCH -> {
+                                    SearchScreen(
+                                        viewModel = viewModel,
+                                        onNavigateToDetails = {
+                                            currentScreen = Screen.DETAIL
+                                        }
+                                    )
+                                }
+
+                                Tab.CONTINUE_WATCHING -> {
+                                    ContinueWatchingTab(
+                                        viewModel = viewModel,
+                                        onNavigateToDetails = {
+                                            currentScreen = Screen.DETAIL
+                                        },
+                                        onInstantPlayEpisode = { provider, item, seasonNum, ep ->
+                                            viewModel.setProvider(provider)
+                                            viewModel.selectMediaItem(item, seasonNum)
+                                            viewModel.playEpisode(item, seasonNum, ep)
+                                        },
+                                        onInstantPlayMovie = { provider, item ->
+                                            viewModel.setProvider(provider)
+                                            viewModel.selectMediaItem(item)
+                                            viewModel.playMovie(item)
+                                        }
+                                    )
+                                }
+
+                                Tab.FAVORITES -> {
+                                    FavoritesTab(
+                                        viewModel = viewModel,
+                                        onNavigateToDetails = {
+                                            currentScreen = Screen.DETAIL
+                                        }
+                                    )
+                                }
+
+                                Tab.SETTINGS -> {
+                                    SettingsScreen(viewModel = viewModel)
+                                }
                             }
-                        )
-                    }
-                    Screen.PLAYER -> {
-                        // Handled above outside Scaffold
+                        }
+
+                        Screen.DETAIL -> {
+                            DetailScreen(
+                                viewModel = viewModel,
+                                onBack = {
+                                    viewModel.selectMediaItem(null)
+                                    currentScreen = Screen.SEARCH
+                                }
+                            )
+                        }
+
+                        Screen.PLAYER -> {
+                            // Handled above outside Scaffold
+                        }
                     }
                 }
             }
         }
-    }
-    if (!isOnboardingCompleted) {
-        OnboardingScreen(onFinished = { viewModel.completeOnboarding() })
-        return
+        if (!isOnboardingCompleted) {
+            OnboardingScreen(onFinished = { viewModel.completeOnboarding() })
+        }
     }
 }
+
 
 /* ==========================================================================================
    HOMETAB & FAVORITESTAB SCREENS
@@ -312,14 +382,25 @@ fun AppNavigator(viewModel: MainViewModel) {
 fun SettingsScreen(viewModel: MainViewModel) {
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val providerLanguage by viewModel.providerLanguage.collectAsStateWithLifecycle()
-    val tmdbApiKey by viewModel.tmdbApiKey.collectAsStateWithLifecycle()
-    var editKey by remember { mutableStateOf(tmdbApiKey) }
+    val strings = s
 
     val languages = listOf(
-        "it" to "Italiano", "en" to "English", "es" to "Español", "fr" to "Français",
-        "de" to "Deutsch", "pt" to "Português", "ru" to "Русский", "ja" to "日本語", "ko" to "한국어", "zh" to "中文"
+        "it" to "Italiano",
+        "en" to "English",
+        "es" to "Español",
+        "fr" to "Français",
+        "de" to "Deutsch",
+        "pt" to "Português",
+        "ru" to "Русский",
+        "ja" to "日本語",
+        "ko" to "한국어",
+        "zh" to "中文"
     )
-    val providerLanguages = listOf("it" to "Italiano", "en" to "Inglese", "ja" to "Giapponese")
+    val providerLanguages = if (appLanguage == "it") {
+        listOf("it" to "Italiano", "en" to "Inglese", "ja" to "Giapponese")
+    } else {
+        listOf("it" to "Italian", "en" to "English", "ja" to "Japanese")
+    }
 
     var showAppLangMenu by remember { mutableStateOf(false) }
     var showProviderLangMenu by remember { mutableStateOf(false) }
@@ -331,21 +412,29 @@ fun SettingsScreen(viewModel: MainViewModel) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Text(text = "Impostazioni", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(
+            text = strings.settings,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
 
         // Impostazioni Lingua
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Lingua", fontSize = 18.sp, color = ForgeOrange)
+            Text(text = strings.language, fontSize = 18.sp, color = ForgeOrange)
 
             // Lingua App (TMDB e UI)
-            Text(text = "Lingua App (Titoli e Trama)", color = Color.LightGray, fontSize = 14.sp)
+            Text(text = strings.app_language_title, color = Color.LightGray, fontSize = 14.sp)
             Box {
                 Button(
                     onClick = { showAppLangMenu = true },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C2C)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = languages.find { it.first == appLanguage }?.second ?: appLanguage, color = Color.White)
+                    Text(
+                        text = languages.find { it.first == appLanguage }?.second ?: appLanguage,
+                        color = Color.White
+                    )
                 }
                 androidx.compose.material3.DropdownMenu(
                     expanded = showAppLangMenu,
@@ -367,14 +456,17 @@ fun SettingsScreen(viewModel: MainViewModel) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Lingua Provider (StreamingCommunity)
-            Text(text = "Lingua Audio Predefinita", color = Color.LightGray, fontSize = 14.sp)
+            Text(text = strings.audio_language_title, color = Color.LightGray, fontSize = 14.sp)
             Box {
                 Button(
                     onClick = { showProviderLangMenu = true },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C2C)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = providerLanguages.find { it.first == providerLanguage }?.second ?: providerLanguage, color = Color.White)
+                    Text(
+                        text = providerLanguages.find { it.first == providerLanguage }?.second
+                            ?: providerLanguage, color = Color.White
+                    )
                 }
                 androidx.compose.material3.DropdownMenu(
                     expanded = showProviderLangMenu,
@@ -397,8 +489,8 @@ fun SettingsScreen(viewModel: MainViewModel) {
         HorizontalDivider(color = SteelGrey.copy(alpha = 0.5f))
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "Aggiornamenti", fontSize = 18.sp, color = ForgeOrange)
-            Text(text = "Aggiorna manualmente i domini dei siti e le impostazioni API dal repository.", color = Color.LightGray, fontSize = 14.sp)
+            Text(text = strings.updates, fontSize = 18.sp, color = ForgeOrange)
+            Text(text = strings.update_desc, color = Color.LightGray, fontSize = 14.sp)
             val context = LocalContext.current
             var isUpdating by remember { mutableStateOf(false) }
             Button(
@@ -407,20 +499,46 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     viewModel.refreshDomainsAndApi { success ->
                         isUpdating = false
                         if (success) {
-                            android.widget.Toast.makeText(context, "Aggiornamento completato con successo", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(
+                                context,
+                                strings.update_success,
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         } else {
-                            android.widget.Toast.makeText(context, "Errore durante l'aggiornamento", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(
+                                context,
+                                strings.update_error,
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 },
                 enabled = !isUpdating,
-                colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange, contentColor = Color.Black)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ForgeOrange,
+                    contentColor = Color.Black
+                )
             ) {
                 if (isUpdating) {
                     CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Aggiorna Ora")
+                    Text(strings.update_now)
                 }
+            }
+        }
+
+        HorizontalDivider(color = SteelGrey.copy(alpha = 0.5f))
+
+        // Reset Tutorial
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { viewModel.resetOnboarding() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray, contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(text = strings.settings_reset_onboarding)
             }
         }
     }
@@ -431,12 +549,14 @@ fun HomeScreen(
     viewModel: MainViewModel,
     onNavigateToDetails: () -> Unit
 ) {
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val trendingMovies by viewModel.homeTrendingMovies.collectAsStateWithLifecycle()
     val trendingSeries by viewModel.homeTrendingSeries.collectAsStateWithLifecycle()
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val actionMovies by viewModel.homeActionMovies.collectAsStateWithLifecycle()
     val comedyMovies by viewModel.homeComedyMovies.collectAsStateWithLifecycle()
     val homeError by viewModel.homeError.collectAsStateWithLifecycle()
+    val resumingItemId by viewModel.resumingItemId.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.loadHomeData()
@@ -450,8 +570,17 @@ fun HomeScreen(
         item {
             val heroItem = trendingSeries.firstOrNull() ?: trendingMovies.firstOrNull()
             if (homeError != null) {
-                Box(modifier = Modifier.fillMaxWidth().height(250.dp), contentAlignment = Alignment.Center) {
-                    Text(homeError ?: "Errore", color = Color.Red, modifier = Modifier.padding(16.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        homeError ?: "Errore",
+                        color = Color.Red,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             } else if (heroItem != null) {
                 Box(
@@ -476,7 +605,11 @@ fun HomeScreen(
                             .fillMaxSize()
                             .background(
                                 Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color(0xAA000000), DarkBackground),
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color(0xAA000000),
+                                        DarkBackground
+                                    ),
                                     startY = 0f
                                 )
                             )
@@ -497,14 +630,23 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = ForgeOrange)
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = "Play",
+                                tint = ForgeOrange
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Text("Guarda Ora", color = ForgeOrange, fontWeight = FontWeight.Bold)
+                            Text(s.details_play, color = ForgeOrange, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             } else {
-                Box(modifier = Modifier.fillMaxWidth().height(250.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(color = ForgeOrange)
                 }
             }
@@ -514,40 +656,42 @@ fun HomeScreen(
         if (continueWatchingList.isNotEmpty()) {
             item {
                 ContinueWatchingRow(
-                    "Continua a guardare",
+                    s.continue_watching,
                     continueWatchingList,
-                    onPlay = { item ->
+                    resumingItemId = resumingItemId,
+                    onPlay = { itemCW ->
                         val mediaObj = MediaItem(
-                            id = item.mediaId,
-                            name = item.name,
-                            type = item.type,
-                            slug = item.slug,
-                            posterUrl = item.posterUrl,
-                            year = item.year
+                            id = itemCW.mediaId,
+                            name = itemCW.name,
+                            type = itemCW.type,
+                            slug = itemCW.slug,
+                            posterUrl = itemCW.posterUrl,
+                            year = itemCW.year
                         )
                         if (mediaObj.isMovie) {
-                            viewModel.setProvider(item.provider)
+                            viewModel.setProvider(itemCW.provider)
                             viewModel.selectMediaItem(mediaObj)
                             viewModel.playMovie(mediaObj)
                         } else {
                             val epObj = Episode(
-                                id = item.lastEpisodeId ?: 0,
-                                number = item.lastEpisodeNumber ?: 1,
-                                name = item.lastEpisodeName ?: "Episodio"
+                                id = itemCW.lastEpisodeId ?: 0,
+                                number = itemCW.lastEpisodeNumber ?: 1,
+                                name = itemCW.lastEpisodeName
+                                    ?: if (appLanguage == "it") "Episodio" else "Episode"
                             )
-                            viewModel.setProvider(item.provider)
-                            viewModel.selectMediaItem(mediaObj, item.lastSeasonNumber ?: 1)
-                            viewModel.playEpisode(mediaObj, item.lastSeasonNumber ?: 1, epObj)
+                            viewModel.setProvider(itemCW.provider)
+                            viewModel.selectMediaItem(mediaObj, itemCW.lastSeasonNumber ?: 1)
+                            viewModel.playEpisode(mediaObj, itemCW.lastSeasonNumber ?: 1, epObj)
                         }
                     },
-                    onNavigateToDetails = { item ->
+                    onNavigateToDetails = { itemCW ->
                         val mediaObj = MediaItem(
-                            id = item.mediaId,
-                            name = item.name,
-                            type = item.type,
-                            slug = item.slug,
-                            posterUrl = item.posterUrl,
-                            year = item.year
+                            id = itemCW.mediaId,
+                            name = itemCW.name,
+                            type = itemCW.type,
+                            slug = itemCW.slug,
+                            posterUrl = itemCW.posterUrl,
+                            year = itemCW.year
                         )
                         viewModel.selectMediaItem(mediaObj)
                         onNavigateToDetails()
@@ -555,10 +699,10 @@ fun HomeScreen(
                 )
             }
         }
-        item { HomeCarousel("Serie TV del Momento", trendingSeries, viewModel, onNavigateToDetails) }
-        item { HomeCarousel("Film del Momento", trendingMovies, viewModel, onNavigateToDetails) }
-        item { HomeCarousel("Azione", actionMovies, viewModel, onNavigateToDetails) }
-        item { HomeCarousel("Commedia", comedyMovies, viewModel, onNavigateToDetails) }
+        item { HomeCarousel(s.trending_series, trendingSeries, viewModel, onNavigateToDetails) }
+        item { HomeCarousel(s.trending_movies, trendingMovies, viewModel, onNavigateToDetails) }
+        item { HomeCarousel(s.action_movies, actionMovies, viewModel, onNavigateToDetails) }
+        item { HomeCarousel(s.comedy_movies, comedyMovies, viewModel, onNavigateToDetails) }
     }
 }
 
@@ -566,10 +710,15 @@ fun HomeScreen(
 fun ContinueWatchingRow(
     title: String,
     items: List<ContinueWatchingItem>,
+    resumingItemId: String? = null,
     onPlay: (ContinueWatchingItem) -> Unit,
     onNavigateToDetails: (ContinueWatchingItem) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -601,7 +750,10 @@ fun ContinueWatchingRow(
                                 .fillMaxSize()
                                 .background(
                                     Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Black.copy(alpha = 0.8f)
+                                        )
                                     )
                                 )
                         )
@@ -613,7 +765,15 @@ fun ContinueWatchingRow(
                                 .size(48.dp)
                                 .background(ForgeOrange, CircleShape)
                         ) {
-                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
+                            if (resumingItemId == item.id) {
+                                CircularProgressIndicator(
+                                    color = Color.Black,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
+                            }
                         }
 
                         Column(
@@ -638,7 +798,10 @@ fun ContinueWatchingRow(
                             if (item.lastPositionMillis != null && item.durationMillis != null && item.durationMillis > 0) {
                                 LinearProgressIndicator(
                                     progress = (item.lastPositionMillis.toFloat() / item.durationMillis.toFloat()),
-                                    modifier = Modifier.fillMaxWidth().height(2.dp).padding(top = 4.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(2.dp)
+                                        .padding(top = 4.dp),
                                     color = ForgeOrange,
                                     trackColor = Color.Gray
                                 )
@@ -662,7 +825,11 @@ fun HomeCarousel(
 
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
 
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -688,7 +855,10 @@ fun HomeCarousel(
                         }
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
                                 text = item.name,
                                 color = Color.White,
@@ -705,7 +875,8 @@ fun HomeCarousel(
                         )
 
                         if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
-                            val progress = progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                            val progress =
+                                progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
                             LinearProgressIndicator(
                                 progress = { progress.coerceIn(0f, 1f) },
                                 modifier = Modifier
@@ -717,12 +888,17 @@ fun HomeCarousel(
                             )
 
                             // Remaining time text (Feature 2)
-                            val remaining = progressEntry.durationMillis - (progressEntry.lastPositionMillis ?: 0L)
+                            val remaining =
+                                progressEntry.durationMillis - (progressEntry.lastPositionMillis
+                                    ?: 0L)
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
                                     .padding(4.dp)
-                                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                    .background(
+                                        Color.Black.copy(alpha = 0.6f),
+                                        RoundedCornerShape(4.dp)
+                                    )
                                     .padding(horizontal = 4.dp, vertical = 2.dp)
                             ) {
                                 Text(
@@ -749,6 +925,7 @@ fun ContinueWatchingTab(
 ) {
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val isBootstrapping by viewModel.isBootstrapping.collectAsStateWithLifecycle()
+    val resumingItemId by viewModel.resumingItemId.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -776,7 +953,7 @@ fun ContinueWatchingTab(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Continua a Guardare",
+                        text = s.continue_watching,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -823,7 +1000,7 @@ fun ContinueWatchingTab(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Nessun titolo in riproduzione",
+                            text = s.no_continue_watching_title,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                             fontSize = 16.sp,
@@ -831,7 +1008,7 @@ fun ContinueWatchingTab(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Inizia la riproduzione di un film o serie TV dalla scheda Ricerca per ritrovarlo qui!",
+                            text = s.no_continue_watching_desc,
                             color = SteelGrey,
                             fontSize = 13.sp,
                             textAlign = TextAlign.Center
@@ -852,6 +1029,7 @@ fun ContinueWatchingTab(
                 items(continueWatchingList, key = { it.id }) { item ->
                     ContinueWatchingCard(
                         item = item,
+                        resumingItemId = resumingItemId,
                         onPlay = {
                             val mediaObj = MediaItem(
                                 id = item.mediaId,
@@ -869,13 +1047,31 @@ fun ContinueWatchingTab(
                                     number = item.lastEpisodeNumber ?: 1,
                                     name = item.lastEpisodeName ?: "Episodio"
                                 )
-                                onInstantPlayEpisode(item.provider, mediaObj, item.lastSeasonNumber ?: 1, epObj)
+                                onInstantPlayEpisode(
+                                    item.provider,
+                                    mediaObj,
+                                    item.lastSeasonNumber ?: 1,
+                                    epObj
+                                )
                             }
                         },
                         onDelete = {
                             viewModel.deleteContinueWatchingItem(item.id)
+                        },
+                        onNavigateToDetails = { itemDetail ->
+                            val mediaObj = MediaItem(
+                                id = itemDetail.mediaId,
+                                name = itemDetail.name,
+                                type = itemDetail.type,
+                                slug = itemDetail.slug,
+                                posterUrl = itemDetail.posterUrl,
+                                year = itemDetail.year
+                            )
+                            viewModel.selectMediaItem(mediaObj)
+                            onNavigateToDetails()
                         }
                     )
+
                 }
             }
         }
@@ -889,6 +1085,8 @@ fun FavoritesTab(
 ) {
     val favoritesList by viewModel.favoritesList.collectAsStateWithLifecycle()
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+    val resumingItemId by viewModel.resumingItemId.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -902,7 +1100,7 @@ fun FavoritesTab(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "I Miei Preferiti",
+                    text = s.favorites,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -910,81 +1108,87 @@ fun FavoritesTab(
             }
         }
     ) { innerPadding ->
-        if (favoritesList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.FavoriteBorder,
-                        contentDescription = null,
-                        tint = SteelGrey.copy(alpha = 0.4f),
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Ancora nessun preferito",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Aggiungi i tuoi titoli preferiti premendo il cuore nella pagina dei dettagli!",
-                        color = SteelGrey,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+
+
+
+            if (favoritesList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.FavoriteBorder,
+                            contentDescription = null,
+                            tint = SteelGrey.copy(alpha = 0.4f),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = s.no_favorites_title,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = s.no_favorites_desc,
+                            color = SteelGrey,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(favoritesList, key = { it.id }) { item ->
-                    val progressEntry = continueWatchingList.find { it.mediaId == item.mediaId }
-                    FavoriteGridCard(
-                        item = item,
-                        progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
-                            progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
-                        } else null,
-                        onClick = {
-                            val mediaObj = MediaItem(
-                                id = item.mediaId,
-                                name = item.name,
-                                type = item.type,
-                                slug = item.slug,
-                                posterUrl = item.posterUrl,
-                                year = item.year
-                            )
-                            viewModel.selectMediaItem(mediaObj)
-                            onNavigateToDetails()
-                        },
-                        onRemove = {
-                            val mediaObj = MediaItem(
-                                id = item.mediaId,
-                                name = item.name,
-                                type = item.type,
-                                slug = item.slug,
-                                posterUrl = item.posterUrl,
-                                year = item.year
-                            )
-                            viewModel.selectMediaItem(mediaObj)
-                            viewModel.toggleFavorite()
-                            viewModel.selectMediaItem(null)
-                        }
-                    )
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(favoritesList, key = { it.id }) { item ->
+                        val progressEntry = continueWatchingList.find { it.mediaId == item.mediaId }
+                        FavoriteGridCard(
+                            item = item,
+                            progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
+                                progressEntry.lastPositionMillis!!.toFloat() / progressEntry.durationMillis.toFloat()
+                            } else null,
+                            onClick = {
+                                val mediaObj = MediaItem(
+                                    id = item.mediaId,
+                                    name = item.name,
+                                    type = item.type,
+                                    slug = item.slug,
+                                    posterUrl = item.posterUrl,
+                                    year = item.year
+                                )
+                                viewModel.selectMediaItem(mediaObj)
+                                onNavigateToDetails()
+                            },
+                            onRemove = {
+                                val mediaObj = MediaItem(
+                                    id = item.mediaId,
+                                    name = item.name,
+                                    type = item.type,
+                                    slug = item.slug,
+                                    posterUrl = item.posterUrl,
+                                    year = item.year
+                                )
+                                viewModel.selectMediaItem(mediaObj)
+                                viewModel.toggleFavorite()
+                                viewModel.selectMediaItem(null)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -1131,6 +1335,8 @@ fun SearchScreen(
     val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
     val searchError by viewModel.searchError.collectAsStateWithLifecycle()
     val isBootstrapping by viewModel.isBootstrapping.collectAsStateWithLifecycle()
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+    val resumingItemId by viewModel.resumingItemId.collectAsStateWithLifecycle()
 
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -1173,35 +1379,74 @@ fun SearchScreen(
                 // Selector for Streaming providers
                 var dropdownExpanded by remember { mutableStateOf(false) }
                 val allProviders = listOf(
-                    "StreamingCommunity", "AnimeUnity", "DiscoveryPlus", "Discovery", "DMax", "Nove", "RealTime",
-                    "MediasetInfinity", "RaiPlay", "HomeGardenTV", "FoodNetwork", "AnimeWorld", "Crunchyroll",
-                    "PrimeVideo", "TubiTV", "Cinezo", "MostraGuarda", "EuroStreaming"
+                    "StreamingCommunity",
+                    "AnimeUnity",
+                    "DiscoveryPlus",
+                    "Discovery",
+                    "DMax",
+                    "Nove",
+                    "RealTime",
+                    "MediasetInfinity",
+                    "RaiPlay",
+                    "HomeGardenTV",
+                    "FoodNetwork",
+                    "AnimeWorld",
+                    "Crunchyroll",
+                    "PrimeVideo",
+                    "TubiTV",
+                    "Cinezo",
+                    "MostraGuarda",
+                    "EuroStreaming"
                 )
 
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = { dropdownExpanded = true },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = DarkBackground, contentColor = Color.White),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = DarkBackground,
+                            contentColor = Color.White
+                        ),
                         border = BorderStroke(1.dp, ForgeOrange),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Provider: ${provider.replaceFirstChar { it.uppercase() }}", color = ForgeOrange, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${s.search_provider}: ${provider.replaceFirstChar { it.uppercase() }}",
+                            color = ForgeOrange,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Scegli Provider", tint = ForgeOrange)
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "Scegli Provider",
+                            tint = ForgeOrange
+                        )
                     }
                     DropdownMenu(
                         expanded = dropdownExpanded,
                         onDismissRequest = { dropdownExpanded = false },
-                        modifier = Modifier.fillMaxWidth(0.92f).background(DarkSurface).heightIn(max = 400.dp)
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .background(DarkSurface)
+                            .heightIn(max = 400.dp)
                     ) {
                         allProviders.forEach { p ->
                             DropdownMenuItem(
                                 text = {
                                     Text(
                                         p,
-                                        color = if (p.equals(provider, ignoreCase = true)) ForgeOrange else Color.White,
-                                        fontWeight = if (p.equals(provider, ignoreCase = true)) FontWeight.Bold else FontWeight.Normal
+                                        color = if (p.equals(
+                                                provider,
+                                                ignoreCase = true
+                                            )
+                                        ) ForgeOrange else Color.White,
+                                        fontWeight = if (p.equals(
+                                                provider,
+                                                ignoreCase = true
+                                            )
+                                        ) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
                                 onClick = {
@@ -1236,16 +1481,26 @@ fun SearchScreen(
                     OutlinedTextField(
                         value = query,
                         onValueChange = { viewModel.setQuery(it) },
-                        placeholder = { Text("Cerca film o serie TV...", color = SteelGrey) },
+                        placeholder = { Text(s.search_hint, color = SteelGrey) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 16.dp)
                             .testTag("search_input"),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Icon", tint = ForgeOrange) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search Icon",
+                                tint = ForgeOrange
+                            )
+                        },
                         trailingIcon = {
                             if (query.isNotEmpty()) {
                                 IconButton(onClick = { viewModel.setQuery("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear text", tint = SteelGrey)
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        contentDescription = "Clear text",
+                                        tint = SteelGrey
+                                    )
                                 }
                             }
                         },
@@ -1279,12 +1534,23 @@ fun SearchScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange)
                     ) {
                         if (isSearching) {
-                            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(
+                                color = Color.Black,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
                         } else {
-                            Text("Cerca su $provider", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(
+                                "${s.search} su $provider",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
                         }
                     }
                 }
+
+                
 
                 // Search Feedback error display
                 if (searchError != null && !isSearching) {
@@ -1355,8 +1621,10 @@ fun SearchScreen(
 @Composable
 fun ContinueWatchingCard(
     item: ContinueWatchingItem,
+    resumingItemId: String? = null,
     onPlay: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onNavigateToDetails: (ContinueWatchingItem) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -1365,7 +1633,11 @@ fun ContinueWatchingCard(
             .border(1.dp, ForgeOrange.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(containerColor = DarkSurface)
     ) {
-        Box(modifier = Modifier.height(120.dp).fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .height(120.dp)
+                .fillMaxWidth()
+                .clickable { onNavigateToDetails(item) }) {
             if (item.posterUrl != null) {
                 AsyncImage(
                     model = item.posterUrl,
@@ -1425,7 +1697,12 @@ fun ContinueWatchingCard(
                         .clickable { onDelete() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Dele", tint = Color.Red, modifier = Modifier.size(14.dp))
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Dele",
+                        tint = Color.Red,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
 
@@ -1438,7 +1715,15 @@ fun ContinueWatchingCard(
                     .clip(CircleShape)
                     .background(ForgeOrange)
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Black)
+                if (resumingItemId == item.id) {
+                    CircularProgressIndicator(
+                        color = Color.Black,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Black)
+                }
             }
 
             // Visual Playback Progress Bar (Feature 2)
@@ -1528,7 +1813,12 @@ fun MediaItemSearchRow(
                 .padding(8.dp)
                 .fillMaxWidth()
         ) {
-            Box(modifier = Modifier.width(80.dp).height(115.dp).clip(RoundedCornerShape(8.dp))) {
+            Box(
+                modifier = Modifier
+                    .width(80.dp)
+                    .height(115.dp)
+                    .clip(RoundedCornerShape(8.dp))
+            ) {
                 if (item.posterUrl != null) {
                     AsyncImage(
                         model = item.posterUrl,
@@ -1650,6 +1940,7 @@ fun DetailScreen(
     onBack: () -> Unit
 ) {
     val currentContext = androidx.compose.ui.platform.LocalContext.current
+    val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val providerName by viewModel.selectedProvider.collectAsStateWithLifecycle()
     val selectedItem by viewModel.selectedMediaItem.collectAsStateWithLifecycle()
     val seasons by viewModel.seasons.collectAsStateWithLifecycle()
@@ -1670,10 +1961,20 @@ fun DetailScreen(
         containerColor = DarkBackground,
         topBar = {
             TopAppBar(
-                title = { Text(text = "Dettagli Titolo", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = s.details_title,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Indietro", tint = ForgeOrange)
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = s.back,
+                            tint = ForgeOrange
+                        )
                     }
                 },
                 actions = {
@@ -1722,7 +2023,12 @@ fun DetailScreen(
                                 .background(Color.Gray.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = ForgeOrange, modifier = Modifier.size(48.dp))
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = ForgeOrange,
+                                modifier = Modifier.size(48.dp)
+                            )
                         }
                     }
 
@@ -1762,14 +2068,14 @@ fun DetailScreen(
                         Column {
                             if (!item.year.isNullOrBlank()) {
                                 Text(
-                                    text = "Anno di rilascio: ${item.year}",
+                                    text = "${s.details_year}: ${item.year}",
                                     color = SteelGrey,
                                     fontSize = 13.sp
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                             }
                             Text(
-                                text = "Provider: $providerName",
+                                text = "${s.search_provider}: $providerName",
                                 color = SteelGrey,
                                 fontSize = 13.sp
                             )
@@ -1793,9 +2099,12 @@ fun DetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            CircularProgressIndicator(color = ForgeOrange, modifier = Modifier.size(24.dp))
+                            CircularProgressIndicator(
+                                color = ForgeOrange,
+                                modifier = Modifier.size(24.dp)
+                            )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Text("Estrazione link di streaming HLS in corso...", color = Color.White, fontSize = 14.sp)
+                            Text(s.details_extracting, color = Color.White, fontSize = 14.sp)
                         }
                     }
                 }
@@ -1832,21 +2141,41 @@ fun DetailScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
                         enabled = !isExtracting
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Black)
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.Black
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("▶ RIPRODUCI FILM COMPLETO", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            s.details_play_movie,
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(
                         onClick = { viewModel.copySingleStream(item, null, null, currentContext) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = ForgeOrange),
                         border = androidx.compose.foundation.BorderStroke(1.dp, ForgeOrange),
                         enabled = !isExtracting
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = "Copia Link m3u8", tint = ForgeOrange)
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = s.details_copy_link,
+                            tint = ForgeOrange
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("⎘ COPIA LINK M3U8", color = ForgeOrange, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            "⎘ ${s.details_copy_link.uppercase()} M3U8",
+                            color = ForgeOrange,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
                     }
                 }
             } else {
@@ -1858,7 +2187,11 @@ fun DetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 12.dp)
-                                .border(1.dp, ForgeOrange.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                .border(
+                                    1.dp,
+                                    ForgeOrange.copy(alpha = 0.4f),
+                                    RoundedCornerShape(12.dp)
+                                )
                         ) {
                             Row(
                                 modifier = Modifier
@@ -1869,14 +2202,14 @@ fun DetailScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Continua la visione",
+                                        text = s.continue_watching,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
                                         color = ForgeOrange
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Stagione ${lastWatched?.lastSeasonNumber} • Episodio ${lastWatched?.lastEpisodeNumber}",
+                                        text = "${s.details_season_label} ${lastWatched?.lastSeasonNumber} • ${if (appLanguage == "it") "Episodio" else "Episode"} ${lastWatched?.lastEpisodeNumber}",
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
@@ -1896,17 +2229,31 @@ fun DetailScreen(
                                         val epObj = Episode(
                                             id = lastWatched?.lastEpisodeId ?: 0,
                                             number = lastWatched?.lastEpisodeNumber ?: 1,
-                                            name = lastWatched?.lastEpisodeName ?: "Episodio"
+                                            name = lastWatched?.lastEpisodeName
+                                                ?: if (appLanguage == "it") "Episodio" else "Episode"
                                         )
-                                        viewModel.playEpisode(item, lastWatched?.lastSeasonNumber ?: 1, epObj)
+                                        viewModel.playEpisode(
+                                            item,
+                                            lastWatched?.lastSeasonNumber ?: 1,
+                                            epObj
+                                        )
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
                                     enabled = !isExtracting,
                                     modifier = Modifier.padding(start = 12.dp)
                                 ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                                    Icon(
+                                        Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.Black
+                                    )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("PROSEGUI", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(
+                                        s.details_resume,
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
                                 }
                             }
                         }
@@ -1915,7 +2262,11 @@ fun DetailScreen(
 
                 // Series Seasons and Episodes
                 item {
-                    Divider(color = SteelGrey.copy(alpha = 0.3f), thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
+                    Divider(
+                        color = SteelGrey.copy(alpha = 0.3f),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
                 }
 
                 if (isLoading) {
@@ -1943,7 +2294,7 @@ fun DetailScreen(
                     if (seasons.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Seleziona Stagione",
+                                text = s.details_seasons_select,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
@@ -1969,8 +2320,15 @@ fun DetailScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(text = "Stagione ${selectedSeason ?: 1}", color = Color.White)
-                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = ForgeOrange)
+                                            Text(
+                                                text = "${s.details_season_label} ${selectedSeason ?: 1}",
+                                                color = Color.White
+                                            )
+                                            Icon(
+                                                Icons.Default.ArrowDropDown,
+                                                contentDescription = null,
+                                                tint = ForgeOrange
+                                            )
                                         }
                                     }
 
@@ -1983,7 +2341,12 @@ fun DetailScreen(
                                     ) {
                                         seasons.forEach { season ->
                                             DropdownMenuItem(
-                                                text = { Text("Stagione ${season.number}", color = Color.White) },
+                                                text = {
+                                                    Text(
+                                                        "${s.details_season_label} ${season.number}",
+                                                        color = Color.White
+                                                    )
+                                                },
                                                 onClick = {
                                                     expanded = false
                                                     viewModel.selectSeason(season.number)
@@ -1994,13 +2357,24 @@ fun DetailScreen(
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 IconButton(
-                                    onClick = { viewModel.copySeasonStreams(item, selectedSeason ?: 1, episodes, currentContext) },
+                                    onClick = {
+                                        viewModel.copySeasonStreams(
+                                            item,
+                                            selectedSeason ?: 1,
+                                            episodes,
+                                            currentContext
+                                        )
+                                    },
                                     enabled = !isExtracting,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(DarkSurface)
                                 ) {
-                                    Icon(Icons.Default.Share, contentDescription = "Copia Stagione", tint = ForgeOrange)
+                                    Icon(
+                                        Icons.Default.Share,
+                                        contentDescription = "Copia Stagione",
+                                        tint = ForgeOrange
+                                    )
                                 }
                             }
                         }
@@ -2031,7 +2405,8 @@ fun DetailScreen(
                         }
                     } else {
                         items(episodes) { episode ->
-                            val progressEntry = continueWatchingList.find { it.mediaId == item.id && it.lastEpisodeId == episode.id }
+                            val progressEntry =
+                                continueWatchingList.find { it.mediaId == item.id && it.lastEpisodeId == episode.id }
                             EpisodeRow(
                                 episode = episode,
                                 progress = if (progressEntry != null && progressEntry.durationMillis != null && progressEntry.durationMillis > 0) {
@@ -2041,7 +2416,12 @@ fun DetailScreen(
                                     viewModel.playEpisode(item, selectedSeason ?: 1, episode)
                                 },
                                 onCopyClick = {
-                                    viewModel.copySingleStream(item, selectedSeason ?: 1, episode, currentContext)
+                                    viewModel.copySingleStream(
+                                        item,
+                                        selectedSeason ?: 1,
+                                        episode,
+                                        currentContext
+                                    )
                                 },
                                 enabled = !isExtracting
                             )
@@ -2119,7 +2499,12 @@ fun EpisodeRow(
                         )
                     }
                     IconButton(onClick = onCopyClick) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copia", tint = SteelGrey, modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = "Copia",
+                            tint = SteelGrey,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -2127,7 +2512,9 @@ fun EpisodeRow(
             if (progress != null) {
                 LinearProgressIndicator(
                     progress = { progress.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp),
                     color = ForgeOrange,
                     trackColor = Color.Transparent
                 )
@@ -2174,10 +2561,22 @@ fun PlayerScreen(
     val supportsAudioLanguageSwitch = provider == "StreamingCommunity"
 
     val subtitleOptions = listOf("off" to "Disattivati") + listOf(
-        "it" to "Italiano", "en" to "English", "es" to "Español", "fr" to "Français",
-        "de" to "Deutsch", "pt" to "Português", "ru" to "Русский", "ja" to "日本語", "ko" to "한국어", "zh" to "中文"
+        "it" to "Italiano",
+        "en" to "English",
+        "es" to "Español",
+        "fr" to "Français",
+        "de" to "Deutsch",
+        "pt" to "Português",
+        "ru" to "Русский",
+        "ja" to "日本語",
+        "ko" to "한국어",
+        "zh" to "中文"
     )
-    val audioLanguageOptions = listOf("it" to "Italiano", "en" to "English")
+    val audioLanguageOptions = if (appLang == "it") {
+        listOf("it" to "Italiano", "en" to "Inglese")
+    } else {
+        listOf("it" to "Italian", "en" to "English")
+    }
 
     // Set and release landscape orientation, hide/restore system bars, and keep screen on
     DisposableEffect(Unit) {
@@ -2191,12 +2590,14 @@ fun PlayerScreen(
         var controller: WindowInsetsControllerCompat? = null
         if (window != null) {
             controller = WindowCompat.getInsetsController(window, window.decorView)
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller.hide(WindowInsetsCompat.Type.systemBars())
         }
 
         onDispose {
-            activity?.requestedOrientation = originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.requestedOrientation =
+                originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
@@ -2350,7 +2751,8 @@ fun PlayerScreen(
                     playerView.player = exoPlayer
                 }
                 // Applica lo zoom (taglia i bordi neri) oppure adatta normalmente
-                playerView.resizeMode = if (isZoomed) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                playerView.resizeMode =
+                    if (isZoomed) androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM else androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -2371,7 +2773,8 @@ fun PlayerScreen(
                             if (currentPos > 0 && duration > 0) {
                                 viewModel.updatePlaybackPosition(currentPos, duration)
                             }
-                        } catch (e: Exception) {}
+                        } catch (e: Exception) {
+                        }
                         onBack()
                     },
                     modifier = Modifier
@@ -2382,7 +2785,7 @@ fun PlayerScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Chiudi Media Player",
+                        contentDescription = s.player_close,
                         tint = Color.White
                     )
                 }
@@ -2394,14 +2797,24 @@ fun PlayerScreen(
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
+                            modifier = Modifier
+                                .background(
+                                    Color.Black.copy(alpha = 0.3f),
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 4.dp)
                         )
                         currentEpisode?.let { ep ->
                             Text(
                                 text = "S${currentSeason ?: 1}:E${ep.number} - ${ep.name}",
                                 color = ForgeOrange,
                                 fontSize = 12.sp,
-                                modifier = Modifier.background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp)
+                                modifier = Modifier
+                                    .background(
+                                        Color.Black.copy(alpha = 0.3f),
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 4.dp)
                             )
                         }
                     }
@@ -2431,7 +2844,7 @@ fun PlayerScreen(
                 ) {
                     Icon(
                         imageVector = if (showExtraControls) Icons.Rounded.ArrowCircleRight else Icons.Rounded.ArrowCircleLeft,
-                        contentDescription = "Menu Opzioni",
+                        contentDescription = s.player_options,
                         tint = if (showExtraControls) Color.Black else Color.White
                     )
                 }
@@ -2501,14 +2914,22 @@ fun PlayerScreen(
                                                     Text(name, color = Color.White)
                                                     if (audioLang == code) {
                                                         Spacer(modifier = Modifier.width(8.dp))
-                                                        Icon(Icons.Default.Check, contentDescription = "Selezionato", tint = ForgeOrange, modifier = Modifier.size(16.dp))
+                                                        Icon(
+                                                            Icons.Default.Check,
+                                                            contentDescription = "Selezionato",
+                                                            tint = ForgeOrange,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
                                                     }
                                                 }
                                             },
                                             onClick = {
                                                 showAudioLanguageMenu = false
                                                 if (audioLang != code) {
-                                                    viewModel.switchPlaybackLanguage(code, exoPlayer.currentPosition)
+                                                    viewModel.switchPlaybackLanguage(
+                                                        code,
+                                                        exoPlayer.currentPosition
+                                                    )
                                                 }
                                             }
                                         )
@@ -2564,14 +2985,14 @@ fun PlayerScreen(
                                 modifier = Modifier.background(Color(0xFF2C2C2C))
                             ) {
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Mirroring Schermo", color = Color.White) },
+                                    text = { Text(s.player_mirror_screen, color = Color.White) },
                                     onClick = {
                                         showMirrorOptions = false
                                         context.startActivity(android.content.Intent("android.settings.CAST_SETTINGS"))
                                     }
                                 )
                                 androidx.compose.material3.DropdownMenuItem(
-                                    text = { Text("Condividi Link Web", color = Color.White) },
+                                    text = { Text(s.player_share_link, color = Color.White) },
                                     onClick = {
                                         showMirrorOptions = false
                                         // logica condivisione...
@@ -2590,10 +3011,17 @@ fun PlayerScreen(
                         onClick = { viewModel.playNextEpisode() },
                         colors = ButtonDefaults.buttonColors(containerColor = ForgeOrange),
                         contentPadding = PaddingValues(horizontal = 12.dp),
-                        modifier = Modifier.height(44.dp).width(130.dp)
+                        modifier = Modifier
+                            .height(44.dp)
+                            .width(130.dp)
                     ) {
                         Spacer(Modifier.width(4.dp))
-                        Text("NEXT", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            s.player_next,
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
                         Icon(Icons.Default.ArrowForward, null, tint = Color.Black)
                     }
                 }
@@ -2610,20 +3038,20 @@ fun PlayerScreen(
 fun OnboardingScreen(onFinished: () -> Unit) {
     val pages = listOf(
         OnboardingPage(
-            "Benvenuto su StreamForge",
-            "La tua nuova esperienza di streaming definitiva. Semplice, veloce e senza pubblicità.",
+            s.onboarding_welcome_title,
+            s.onboarding_welcome_desc,
             Icons.Default.PlayCircle,
             ForgeOrange
         ),
         OnboardingPage(
-            "Tutto a portata di click",
-            "Cerca i tuoi film e serie TV preferiti tra diversi provider affidabili.",
+            s.onboarding_search_title,
+            s.onboarding_search_desc,
             Icons.Default.Search,
             ForgeGold
         ),
         OnboardingPage(
-            "Non perdere il filo",
-            "Salva i tuoi preferiti e riprendi la visione esattamente da dove avevi lasciato.",
+            s.onboarding_fav_title,
+            s.onboarding_fav_desc,
             Icons.Default.Favorite,
             Color.Red
         )
@@ -2652,7 +3080,6 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(32.dp),
-                        //.padding(top = 50.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -2669,7 +3096,6 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
@@ -2693,7 +3119,10 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     repeat(pages.size) { iteration ->
-                        val color = if (pagerState.currentPage == iteration) ForgeOrange else SteelGrey.copy(alpha = 0.5f)
+                        val color =
+                            if (pagerState.currentPage == iteration) ForgeOrange else SteelGrey.copy(
+                                alpha = 0.5f
+                            )
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
@@ -2720,7 +3149,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
-                        text = if (pagerState.currentPage == pages.size - 1) "Inizia Ora" else "Avanti",
+                        text = if (pagerState.currentPage == pages.size - 1) s.onboarding_start else s.onboarding_next,
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp

@@ -12,7 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Get Latest Assets
         id: assets
@@ -47,5 +48,5 @@ jobs:
           else
             git add README.md
             git commit -m "docs: update latest release links in README"
-            git push origin HEAD:${{ github.ref_name }}
+            git push origin HEAD:${{ github.event.repository.default_branch }}
           fi

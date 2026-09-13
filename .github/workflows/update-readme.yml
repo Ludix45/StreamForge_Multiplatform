@@ -43,10 +43,11 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet README.md; then
+          git add README.md
+          if git diff --cached --quiet; then
             echo "Nessuna modifica necessaria."
           else
-            git add README.md
             git commit -m "docs: update latest release links in README"
+            # Forza il push sul branch predefinito per evitare problemi di detached HEAD
             git push origin HEAD:${{ github.event.repository.default_branch }}
           fi

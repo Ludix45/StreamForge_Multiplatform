@@ -72,19 +72,26 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.aistudio.streamforge.desktop.MainKt"
+        
+        // Inject secrets into the Desktop app
+        val sentryDsn = project.findProperty("SENTRY_DSN") ?: ""
+        val tmdbApiKey = project.findProperty("TMDB_API_KEY") ?: ""
+        
         // Some Windows GPU/driver combinations render corrupt Skiko frames (white/black tiles).
         // Software Skia is slower but provides a stable, deterministic desktop UI.
         jvmArgs += listOf(
             "-Dskiko.renderApi=SOFTWARE",
             "-Dsun.java2d.d3d=false",
             "-Dsun.java2d.opengl=false",
+            "-DSENTRY_DSN=$sentryDsn",
+            "-DTMDB_API_KEY=$tmdbApiKey"
         )
 
         nativeDistributions {
             // Gradle builds the package format supported by the current host OS.
             targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Dmg)
             packageName = "StreamForge"
-            packageVersion = "1.2.2"
+            packageVersion = "1.3.0"
             vendor = "StreamForge"
             description = "Desktop companion for authorized StreamForge playback sources"
             appResourcesRootDir.set(project.file("packagingDir"))

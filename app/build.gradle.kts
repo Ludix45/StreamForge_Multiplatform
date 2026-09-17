@@ -17,8 +17,8 @@ android {
     applicationId = "com.streamforge"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.2.3"
+    versionCode = 4
+    versionName = "1.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -56,11 +56,28 @@ android {
     compose = true
     buildConfig = true
   }
+  
+  // Expose TMDB_API_KEY and SENTRY_DSN to Scraper and MainActivity
+  buildTypes {
+    getByName("debug") {
+      buildConfigField("String", "TMDB_API_KEY", "\"${project.findProperty("TMDB_API_KEY") ?: ""}\"")
+      buildConfigField("String", "SENTRY_DSN", "\"${project.findProperty("SENTRY_DSN") ?: ""}\"")
+    }
+    getByName("release") {
+      buildConfigField("String", "TMDB_API_KEY", "\"${project.findProperty("TMDB_API_KEY") ?: ""}\"")
+      buildConfigField("String", "SENTRY_DSN", "\"${project.findProperty("SENTRY_DSN") ?: ""}\"")
+      
+      isCrunchPngs = false
+      isMinifyEnabled = false
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+    }
+  }
+  
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
 secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
@@ -106,6 +123,7 @@ dependencies {
   implementation(libs.okhttp.dnsoverhttps)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
+  implementation(project(":shared"))
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

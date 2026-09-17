@@ -1,0 +1,7 @@
+- [x] Creating .env files and adding secrets
+- [x] Configure secrets-gradle-plugin for Android
+- [x] Update Android source code (MainActivity, Scraper)
+- [x] Update Shared SentryManager to remove hardcoded DSN
+- [x] Configure Desktop app to receive secrets
+- [x] Update DesktopApp source code
+- [x] Verify everything works

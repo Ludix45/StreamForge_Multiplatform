@@ -888,7 +888,6 @@ object Scraper {
         item
     }
 
-    private const val DEFAULT_TMDB_API_KEY = "b74737aa76951bca42b32388047055c6"
 
     suspend fun searchCinezo(query: String): List<MediaItem> = withContext(Dispatchers.IO) {
         val list = mutableListOf<MediaItem>()
@@ -965,7 +964,7 @@ object Scraper {
     suspend fun getCinezoSeasons(item: MediaItem): List<Season> = withContext(Dispatchers.IO) {
         val list = mutableListOf<Season>()
         val tmdbId = item.id
-        val apiKey = DEFAULT_TMDB_API_KEY
+        val apiKey = tmdbApiKey
         val detailUrl = "https://api.themoviedb.org/3/tv/$tmdbId?api_key=$apiKey&language=it"
 
         try {
@@ -1144,7 +1143,7 @@ object Scraper {
         }
     }
 
-    var tmdbApiKey = "c90967c3177c7d60362c59fa9cb4a333" // replace or let user configure
+    var tmdbApiKey = ""
     var apiLanguage = "it-IT"
     var defaultProviderLanguage = "it"
 
@@ -1203,6 +1202,36 @@ object Scraper {
             }
         } catch (e: Exception) {
             Log.e(TAG, "getMoviesByGenre error (TMDB)", e)
+        }
+        results
+    }
+
+    suspend fun getRecommendations(tmdbId: Long, isMovie: Boolean): List<MediaItem> = withContext(Dispatchers.IO) {
+        val type = if (isMovie) "movie" else "tv"
+        val url = "https://api.themoviedb.org/3/$type/$tmdbId/recommendations?api_key=$tmdbApiKey&language=$apiLanguage"
+        val results = mutableListOf<MediaItem>()
+        try {
+            val jsonStr = HttpClient.get(url)
+            val jsonArr = JSONObject(jsonStr).optJSONArray("results") ?: return@withContext emptyList()
+            for (i in 0 until jsonArr.length()) {
+                val obj = jsonArr.getJSONObject(i)
+                val id = obj.optLong("id")
+                val title = obj.optString("title").takeIf { it.isNotBlank() } ?: obj.optString("name")
+                val posterPath = obj.optString("poster_path")
+                val releaseDate = obj.optString("release_date").takeIf { it.isNotBlank() } ?: obj.optString("first_air_date")
+                val year = releaseDate.split("-").firstOrNull() ?: ""
+                results.add(MediaItem(
+                    id = id,
+                    name = title,
+                    type = type,
+                    slug = "tmdb_home_item",
+                    posterUrl = "https://image.tmdb.org/t/p/w500$posterPath",
+                    year = year,
+                    providerLanguage = defaultProviderLanguage
+                ))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getRecommendations error (TMDB)", e)
         }
         results
     }

@@ -31,6 +31,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val dao = db.continueWatchingDao()
     private val favDao = db.favoriteDao()
+    private val historyDao = db.historyDao()
     private val prefs = application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
     private val _appLanguage = MutableStateFlow(prefs.getString("app_language", "en") ?: "en")
@@ -43,7 +44,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _subtitleLanguage = MutableStateFlow(prefs.getString("sub_language", "off") ?: "off")
     val subtitleLanguage = _subtitleLanguage.asStateFlow()
 
-    private val _tmdbApiKey = MutableStateFlow("c90967c3177c7d60362c59fa9cb4a333")
+    private val _tmdbApiKey = MutableStateFlow(com.example.BuildConfig.TMDB_API_KEY)
     val tmdbApiKey = _tmdbApiKey.asStateFlow()
 
     private val _isOnboardingCompleted = MutableStateFlow(prefs.getBoolean("onboarding_completed", false))
@@ -81,8 +82,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setTmdbApiKey(key: String) {
-        // Enforce the pre-defined api key
-        _tmdbApiKey.value = "c90967c3177c7d60362c59fa9cb4a333"
+        // Use the key from build config
+        _tmdbApiKey.value = com.example.BuildConfig.TMDB_API_KEY
         updateScraperSettings()
     }
 
@@ -176,6 +177,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _homeComedyMovies = MutableStateFlow<List<MediaItem>>(emptyList())
     val homeComedyMovies = _homeComedyMovies.asStateFlow()
 
+    private val _homeRecommended = MutableStateFlow<List<MediaItem>>(emptyList())
+    val homeRecommended = _homeRecommended.asStateFlow()
+
     private val _homeError = MutableStateFlow<String?>(null)
     val homeError = _homeError.asStateFlow()
 
@@ -206,6 +210,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _homeTrendingSeries.value = apiSeries
                 _homeActionMovies.value = actMovies
                 _homeComedyMovies.value = comMovies
+                
+                // Fetch recommendations based on history
+                try {
+                    val recent = withContext(Dispatchers.IO) { historyDao.getRecent() }
+                    if (recent.isNotEmpty()) {
+                        // Take the most recent item that has a valid ID for TMDB
+                        // Note: for now we assume IDs are TMDB IDs for these items.
+                        val baseItem = recent.first()
+                        val recs = Scraper.getRecommendations(baseItem.mediaId, baseItem.type.lowercase().contains("film") || baseItem.type.lowercase().contains("movie"))
+                        _homeRecommended.value = recs.take(15)
+                    } else {
+                        _homeRecommended.value = emptyList()
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainViewModel", "Error loading recommendations", e)
+                }
                 
                 if (apiMovies.isEmpty() && apiSeries.isEmpty()) {
                     _homeError.value = "Nessun risultato. Controlla connessione o API key."
@@ -324,6 +344,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (results.isEmpty()) {
                     _searchError.value = "Nessun risultato trovato per '$q'"
                 }
+                // Log Search to Sentry
+                com.aistudio.streamforge.SentryManager.logSearch(q, _selectedProvider.value)
             } catch (e: Exception) {
                 _searchError.value = "Errore durante la ricerca: ${e.message}"
             } finally {
@@ -547,6 +569,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _activeStreamUrl.value = streamUrl
 
+                // Log Play to Sentry
+                com.aistudio.streamforge.SentryManager.logContentPlay(item.name, provider, item.type)
+
                 // Save to Continue Watching locally (Feature 2)
                 saveContinueWatching(
                     item = item,
@@ -729,6 +754,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _activeStreamUrl.value = streamUrl
 
+                // Log Play to Sentry
+                com.aistudio.streamforge.SentryManager.logContentPlay("${item.name} S${seasonNumber}E${episode.number}", provider, "episode")
+
                 // Save to Continue Watching locally. (Feature 2)
                 // This updates the single entry representing the movie/series because id is based on "${provider}_${item.id}"
                 saveContinueWatching(
@@ -859,6 +887,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            historyDao.deleteAll()
+            _homeRecommended.value = emptyList()
+        }
+    }
+
     fun updatePlaybackPosition(positionMillis: Long, durationMillis: Long) {
         val item = _selectedMediaItem.value ?: return
         val currentEp = _currentPlayingEpisode.value
@@ -902,6 +937,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             durationMillis = durationMillis
         )
         dao.insert(dbItem)
+        
+        // Save to History (Feature Request)
+        val historyItem = com.example.data.database.HistoryItem(
+            provider = provider,
+            mediaId = item.id,
+            name = item.name,
+            type = item.type,
+            slug = item.slug,
+            posterUrl = item.posterUrl,
+            year = item.year,
+            timestamp = System.currentTimeMillis()
+        )
+        historyDao.insert(historyItem)
+        
         Log.d("MainViewModel", "Saved to continue watching: $uniqueDbId, lastEp: ${episode?.number}, pos: $positionMillis, dur: $durationMillis")
     }
 }

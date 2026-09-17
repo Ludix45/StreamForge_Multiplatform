@@ -99,6 +99,15 @@ private enum class Provider(val label: String) {
 @Composable
 fun StreamForgeDesktopApp(windowState: WindowState) {
     val scope = rememberCoroutineScope()
+    
+    // Inizializza Sentry per il Desktop
+    LaunchedEffect(Unit) {
+        val dsn = System.getProperty("SENTRY_DSN") ?: ""
+        val tmdbKey = System.getProperty("TMDB_API_KEY") ?: ""
+        com.aistudio.streamforge.SentryManager.init(null, dsn)
+        com.example.data.network.Scraper.tmdbApiKey = tmdbKey
+    }
+
     var page by remember { mutableStateOf(DesktopPage.HOME) }
     var previousPage by remember { mutableStateOf(DesktopPage.HOME) }
     var selectedProvider by remember { mutableStateOf(Provider.STREAMING_COMMUNITY) }
@@ -115,6 +124,7 @@ fun StreamForgeDesktopApp(windowState: WindowState) {
     var playbackUrl by remember { mutableStateOf<String?>(null) }
     var favorites by remember { mutableStateOf(DesktopLibraryStore.favorites()) }
     var continued by remember { mutableStateOf(DesktopLibraryStore.continueWatching()) }
+    var recommended by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
     var status by remember { mutableStateOf("Pronto") }
 
     fun navigateTo(newPage: DesktopPage) {
@@ -134,6 +144,16 @@ fun StreamForgeDesktopApp(windowState: WindowState) {
             currentEntry = entry
             DesktopLibraryStore.saveProgress(entry)
             continued = DesktopLibraryStore.continueWatching()
+            
+            // Log Play to Sentry
+            com.aistudio.streamforge.SentryManager.logContentPlay(entry.item.name, entry.provider, entry.item.type)
+
+            // Reload recommendations after playing
+            val history = DesktopLibraryStore.history()
+            if (history.isNotEmpty()) {
+                val base = history.first().item
+                recommended = runCatching { Scraper.getRecommendations(base.id, base.isMovie) }.getOrDefault(emptyList()).take(15)
+            }
             navigateTo(DesktopPage.PLAYER)
         }
     }
@@ -161,6 +181,12 @@ fun StreamForgeDesktopApp(windowState: WindowState) {
         // The home is useful immediately and does not depend on a manual search.
         homeMovies = runCatching { Scraper.getTrending(true) }.getOrDefault(emptyList())
         homeSeries = runCatching { Scraper.getTrending(false) }.getOrDefault(emptyList())
+        
+        val history = DesktopLibraryStore.history()
+        if (history.isNotEmpty()) {
+            val base = history.first().item
+            recommended = runCatching { Scraper.getRecommendations(base.id, base.isMovie) }.getOrDefault(emptyList()).take(15)
+        }
     }
 
     // Never silently replace MPV with VLC: a different engine hides the real cause of a failure.
@@ -255,6 +281,7 @@ fun StreamForgeDesktopApp(windowState: WindowState) {
                     homeMovies,
                     homeSeries,
                     continued,
+                    recommended,
                     { openDetails(Provider.STREAMING_COMMUNITY, it) },
                     { play(it) },
                     { navigateTo(DesktopPage.SEARCH) })
@@ -273,6 +300,9 @@ fun StreamForgeDesktopApp(windowState: WindowState) {
                             runCatching { search(selectedProvider, query) }.onFailure {
                                 status = "Ricerca non riuscita: ${it.message}"
                             }.getOrDefault(emptyList()); status = "${results.size} risultati"
+                            
+                            // Log Search to Sentry
+                            com.aistudio.streamforge.SentryManager.logSearch(query, selectedProvider.label)
                         }
                     },
                     onOpen = { openDetails(selectedProvider, it) },
@@ -366,7 +396,10 @@ fun StreamForgeDesktopApp(windowState: WindowState) {
                         DesktopLibraryStore.favorites()
                     })
 
-                DesktopPage.SETTINGS -> SettingsPage(status) {
+                DesktopPage.SETTINGS -> SettingsPage(status, onResetHistory = {
+                    DesktopLibraryStore.clearHistory()
+                    recommended = emptyList()
+                }) {
                     scope.launch {
                         status =
                             if (DomainManager.refreshDomains()) "Domini provider ripristinati." else "Aggiornamento non riuscito."
@@ -449,6 +482,7 @@ private fun HomePage(
     movies: List<MediaItem>,
     series: List<MediaItem>,
     continued: List<LibraryEntry>,
+    recommended: List<MediaItem>,
     open: (MediaItem) -> Unit,
     play: (LibraryEntry) -> Unit,
     search: () -> Unit
@@ -471,6 +505,9 @@ private fun HomePage(
             continued = continued,
             onPlayEntry = play
         )
+    }
+    if (recommended.isNotEmpty()) item {
+        MediaRow("Consigliati per te", recommended, open)
     }
     item { MediaRow("Film popolari", movies, open) }; item {
     MediaRow(
@@ -839,15 +876,47 @@ private fun formatDuration(ms: Long): String {
 }
 
 @Composable
-private fun SettingsPage(status: String, refresh: () -> Unit) =
+private fun SettingsPage(status: String, onResetHistory: () -> Unit, refresh: () -> Unit) {
+    var showConfirm by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(
             "Impostazioni",
             style = MaterialTheme.typography.headlineLarge
         ); Text("Aggiorna i domini predefiniti dei provider quando un indirizzo non risponde."); Button(
         onClick = refresh
-    ) { Text("Aggiorna domini provider") }; Text(status, color = Color.LightGray)
+    ) { Text("Aggiorna domini provider") }
+
+        androidx.compose.material3.HorizontalDivider(color = Color.DarkGray)
+
+        Text("Cronologia", color = Color(0xFFFF7900), style = MaterialTheme.typography.titleMedium)
+        Button(
+            onClick = { showConfirm = true },
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
+        ) {
+            Icon(Icons.Default.Close, null)
+            Text("  Cancella cronologia contenuti")
+        }
+
+        if (showConfirm) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showConfirm = false },
+                title = { Text("Conferma") },
+                text = { Text("Sei sicuro di voler cancellare tutta la cronologia dei contenuti visti?") },
+                confirmButton = {
+                    Button(onClick = {
+                        onResetHistory()
+                        showConfirm = false
+                    }) { Text("Conferma") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showConfirm = false }) { Text("Annulla") }
+                }
+            )
+        }
+
+        Text(status, color = Color.LightGray)
     }
+}
 
 /** Downloads poster images off the UI thread; a neutral card is shown when an image is unavailable. */
 @Composable

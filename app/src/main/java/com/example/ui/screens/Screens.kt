@@ -541,6 +541,44 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 Text(text = strings.settings_reset_onboarding)
             }
         }
+
+        HorizontalDivider(color = SteelGrey.copy(alpha = 0.5f))
+
+        // Reset History
+        var showResetHistoryConfirm by remember { mutableStateOf(false) }
+        if (showResetHistoryConfirm) {
+            AlertDialog(
+                onDismissRequest = { showResetHistoryConfirm = false },
+                title = { Text(text = strings.settings_reset_history, color = Color.White) },
+                text = { Text(text = strings.settings_reset_history_confirm, color = Color.LightGray) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.clearHistory()
+                        showResetHistoryConfirm = false
+                    }) {
+                        Text(strings.confirm, color = ForgeOrange)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetHistoryConfirm = false }) {
+                        Text(strings.cancel, color = Color.White)
+                    }
+                },
+                containerColor = DarkSurface
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { showResetHistoryConfirm = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C), contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(text = strings.settings_reset_history)
+            }
+        }
     }
 }
 
@@ -555,6 +593,7 @@ fun HomeScreen(
     val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val actionMovies by viewModel.homeActionMovies.collectAsStateWithLifecycle()
     val comedyMovies by viewModel.homeComedyMovies.collectAsStateWithLifecycle()
+    val recommended by viewModel.homeRecommended.collectAsStateWithLifecycle()
     val homeError by viewModel.homeError.collectAsStateWithLifecycle()
     val resumingItemId by viewModel.resumingItemId.collectAsStateWithLifecycle()
 
@@ -699,6 +738,7 @@ fun HomeScreen(
                 )
             }
         }
+        item { HomeCarousel(s.recommended_for_you, recommended, viewModel, onNavigateToDetails) }
         item { HomeCarousel(s.trending_series, trendingSeries, viewModel, onNavigateToDetails) }
         item { HomeCarousel(s.trending_movies, trendingMovies, viewModel, onNavigateToDetails) }
         item { HomeCarousel(s.action_movies, actionMovies, viewModel, onNavigateToDetails) }
@@ -1067,6 +1107,7 @@ fun ContinueWatchingTab(
                                 posterUrl = itemDetail.posterUrl,
                                 year = itemDetail.year
                             )
+                            viewModel.setProvider(itemDetail.provider)
                             viewModel.selectMediaItem(mediaObj)
                             onNavigateToDetails()
                         }
@@ -2636,7 +2677,31 @@ fun PlayerScreen(
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
             .setTrackSelector(trackSelector)
+            .setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, true)
             .build()
+    }
+
+    // Listener per gestire errori di rete e mantenere la posizione
+    val playerListener = remember {
+        object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                // Se c'è un errore di rete (es. cambio wifi/dati), salviamo la posizione e proviamo a ripreparare
+                val currentPos = exoPlayer.currentPosition
+                if (currentPos > 0) {
+                    viewModel.updatePlaybackPosition(currentPos, exoPlayer.duration)
+                }
+                exoPlayer.prepare()
+                exoPlayer.seekTo(currentPos)
+                exoPlayer.play()
+            }
+        }
+    }
+
+    DisposableEffect(exoPlayer) {
+        exoPlayer.addListener(playerListener)
+        onDispose {
+            exoPlayer.removeListener(playerListener)
+        }
     }
 
     // Applica le modifiche ai sottotitoli istantaneamente quando cambia la lingua

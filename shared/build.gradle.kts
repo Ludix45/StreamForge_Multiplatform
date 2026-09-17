@@ -35,6 +35,7 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kamel.image)
+            implementation(libs.sentry.kmp)
         }
         
         val desktopMain by getting {

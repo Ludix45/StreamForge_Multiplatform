@@ -26,9 +26,11 @@ object DesktopLibraryStore {
     private val preferences = Preferences.userRoot().node("com/aistudio/streamforge/desktop")
     private const val FAVORITES = "favorites"
     private const val CONTINUE = "continue"
+    private const val HISTORY = "history"
 
     fun favorites(): List<LibraryEntry> = read(FAVORITES)
     fun continueWatching(): List<LibraryEntry> = read(CONTINUE)
+    fun history(): List<LibraryEntry> = read(HISTORY)
     fun isFavorite(provider: String, item: MediaItem): Boolean = favorites().any { it.provider == provider && it.item.id == item.id }
 
     fun toggleFavorite(entry: LibraryEntry) {
@@ -39,10 +41,18 @@ object DesktopLibraryStore {
     }
 
     fun saveProgress(entry: LibraryEntry) {
+        // Save to continue watching (last per series)
         val items = continueWatching().filterNot { it.provider == entry.provider && it.item.id == entry.item.id }.toMutableList()
         items.add(0, entry)
         write(CONTINUE, items.take(30))
+
+        // Save to history (running log)
+        val historyItems = history().toMutableList()
+        historyItems.add(0, entry)
+        write(HISTORY, historyItems.take(100))
     }
+
+    fun clearHistory() = write(HISTORY, emptyList())
 
     fun removeContinue(entry: LibraryEntry) = write(CONTINUE, continueWatching().filterNot { it.provider == entry.provider && it.item.id == entry.item.id })
 

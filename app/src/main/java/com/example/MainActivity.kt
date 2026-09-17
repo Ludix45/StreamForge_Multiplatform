@@ -28,6 +28,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Inizializza Sentry per le statistiche e il monitoraggio dei crash
+        com.aistudio.streamforge.SentryManager.init(this, BuildConfig.SENTRY_DSN)
+        
+        // Inizializza Scraper con la API Key di TMDB
+        com.example.data.network.Scraper.tmdbApiKey = BuildConfig.TMDB_API_KEY
+        
         // Aggiungi la funzione di poter girare lo schermo nell'app ovunque (in base al sensore dell'utente), 
         // tranne nel player (che viene bloccato e forzato al landscape all'interno di Screens.kt)
         // FULL_USER permette di ruotare lo schermo liberamente.

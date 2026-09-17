@@ -17,6 +17,11 @@ interface StreamForgeStrings {
     val update_error: String
     val back: String
     val settings_reset_onboarding: String
+    val settings_reset_history: String
+    val settings_reset_history_confirm: String
+    val recommended_for_you: String
+    val confirm: String
+    val cancel: String
     
     val home: String
     val search: String
@@ -87,6 +92,11 @@ object ItalianStrings : StreamForgeStrings {
     override val update_error = "Errore durante l'aggiornamento"
     override val back = "Indietro"
     override val settings_reset_onboarding = "Riavvia Tutorial"
+    override val settings_reset_history = "Cancella Cronologia"
+    override val settings_reset_history_confirm = "Sei sicuro di voler cancellare tutta la cronologia dei contenuti visti?"
+    override val recommended_for_you = "Consigliati per te"
+    override val confirm = "Conferma"
+    override val cancel = "Annulla"
     
     override val home = "Home"
     override val search = "Cerca"
@@ -157,6 +167,11 @@ object EnglishStrings : StreamForgeStrings {
     override val update_error = "Error during update"
     override val back = "Back"
     override val settings_reset_onboarding = "Restart Tutorial"
+    override val settings_reset_history = "Clear History"
+    override val settings_reset_history_confirm = "Are you sure you want to clear all your viewing history?"
+    override val recommended_for_you = "Recommended for you"
+    override val confirm = "Confirm"
+    override val cancel = "Cancel"
     
     override val home = "Home"
     override val search = "Search"
@@ -227,6 +242,11 @@ object SpanishStrings : StreamForgeStrings {
     override val update_error = "Error durante la actualización"
     override val back = "Atrás"
     override val settings_reset_onboarding = "Reiniciar Tutorial"
+    override val settings_reset_history = "Borrar historial"
+    override val settings_reset_history_confirm = "¿Estás seguro de que quieres borrar todo tu historial de reproducciones?"
+    override val recommended_for_you = "Recomendado para ti"
+    override val confirm = "Confirmar"
+    override val cancel = "Cancelar"
     
     override val home = "Inicio"
     override val search = "Buscar"
@@ -297,6 +317,11 @@ object FrenchStrings : StreamForgeStrings {
     override val update_error = "Erreur lors de la mise à jour"
     override val back = "Retour"
     override val settings_reset_onboarding = "Redémarrer le Tutoriel"
+    override val settings_reset_history = "Effacer l'historique"
+    override val settings_reset_history_confirm = "Êtes-vous sûr de vouloir effacer tout votre historique de visionnage ?"
+    override val recommended_for_you = "Recommandé pour vous"
+    override val confirm = "Confirmer"
+    override val cancel = "Annuler"
     
     override val home = "Accueil"
     override val search = "Rechercher"
